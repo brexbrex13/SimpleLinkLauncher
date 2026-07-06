@@ -16,14 +16,8 @@ import (
 // 取得に失敗した場合はエラーを返す。呼び出し側(JS)はエラー時に種別ごとの
 // デフォルトSVGアイコンへフォールバックすること。
 //
-// 【重要】この実装はGDI/Shell APIを直接syscallで叩いており、実機での動作確認をしていない。
-// 特に以下は要検証：
-//   - GetDIBits に渡すバッファのフォーマット(32bit BGRA, top-down)が実際のアイコンと一致するか
-//   - フォルダ/拡張子なしファイル/ショートカット(.lnk)で正しいアイコンが取れるか
-//   - 高DPI環境でのアイコンサイズ
-//
-// うまく動かない場合は、自作実装をやめて既存ライブラリ（例: github.com/hallazzang/go-windows-icon 等、
-// ライセンスと保守状況を確認の上）に差し替えることも検討すること。
+// GDI/Shell APIを直接syscallで叩く自作実装。設計上の理由と未検証の項目は
+// .ClaudeCode/DESIGN.md, .ClaudeCode/DEV_NOTES.md を参照。
 func (a *App) ExtractIcon(path string) (string, error) {
 	b, err := extractIconPNG(path)
 	if err != nil {
@@ -37,21 +31,21 @@ var (
 	user32  = syscall.NewLazyDLL("user32.dll")
 	gdi32   = syscall.NewLazyDLL("gdi32.dll")
 
-	procSHGetFileInfoW      = shell32.NewProc("SHGetFileInfoW")
-	procDestroyIcon         = user32.NewProc("DestroyIcon")
-	procGetIconInfo         = user32.NewProc("GetIconInfo")
-	procGetObject           = gdi32.NewProc("GetObjectW")
-	procGetDIBits           = gdi32.NewProc("GetDIBits")
-	procCreateCompatibleDC  = gdi32.NewProc("CreateCompatibleDC")
-	procDeleteDC            = gdi32.NewProc("DeleteDC")
-	procDeleteObject        = gdi32.NewProc("DeleteObject")
-	procSelectObject        = gdi32.NewProc("SelectObject")
+	procSHGetFileInfoW     = shell32.NewProc("SHGetFileInfoW")
+	procDestroyIcon        = user32.NewProc("DestroyIcon")
+	procGetIconInfo        = user32.NewProc("GetIconInfo")
+	procGetObject          = gdi32.NewProc("GetObjectW")
+	procGetDIBits          = gdi32.NewProc("GetDIBits")
+	procCreateCompatibleDC = gdi32.NewProc("CreateCompatibleDC")
+	procDeleteDC           = gdi32.NewProc("DeleteDC")
+	procDeleteObject       = gdi32.NewProc("DeleteObject")
+	procSelectObject       = gdi32.NewProc("SelectObject")
 )
 
 const (
-	shgfiIcon       = 0x000000100
-	shgfiLargeIcon  = 0x000000000
-	dibRgbColors    = 0
+	shgfiIcon      = 0x000000100
+	shgfiLargeIcon = 0x000000000
+	dibRgbColors   = 0
 )
 
 type shfileinfoW struct {

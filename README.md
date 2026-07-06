@@ -1,72 +1,57 @@
-# link-launcher セットアップ手順
+# link-launcher
 
-このリポジトリ一式は **Windows実機でのビルド・動作確認を一切していません**。
-コードとして書けるところまで書いていますが、以下の手順とチェックリストに沿って
-必ず実機で検証してください。
+Windows向けのシンプルなリンク・ファイル・フォルダランチャーアプリ。[Wails v2](https://wails.io/)（Go + WebView）で構築されている。
 
-## 1. セットアップ手順
+## 特徴
 
-```bat
-cd C:\Files\Programing\go-lang\projects
-wails init -n link-launcher -t vanilla
-```
+- URL・ファイル・フォルダ・実行ファイルをタイル/リスト表示から起動
+- ドラッグ&ドロップでの登録・並び替え
+- カテゴリ（タブ）ごとの管理
+- ライト/ダーク/システム連動テーマ
+- ウィンドウサイズ・表示設定の記憶
 
-生成された `link-launcher` フォルダの中身を、このセッションで作成した以下のファイルで置き換える。
+## 必要環境
 
-```
-main.go            ← 置き換え
-app.go              ← 追加
-file_handler.go     ← 追加
-theme_windows.go    ← 追加
-icon_windows.go      ← 追加
-wails.json          ← 置き換え
-frontend\           ← 中身を削除し、link-launcher.html のみ配置
-```
+- Windows
+- Go 1.23 以上
+- [Wails CLI v2](https://wails.io/docs/gettingstarted/installation)
 
-`frontend` フォルダ内の `wailsjs` 等の自動生成物・`package.json` は不要なら削除してよい
-（`frontend:install` / `frontend:build` を空にしているため npm は使わない）。
+## セットアップ
 
 ```bat
 go mod tidy
 ```
 
-`golang.org/x/sys/windows/registry`（テーマ検知）を使うため、依存が自動追加される。
+## 開発
+
+```bat
+wails dev
+```
+
+## ビルド
 
 ```bat
 wails build
 ```
 
-生成された `build\bin\link-launcher.exe` を実行。
+生成された `build\bin\link-launcher.exe` を実行する。
 
-## 2. 実機検証チェックリスト（未検証・要確認）
+## 起動オプション
 
-優先度高い順。
+```bat
+link-launcher.exe -width 1180 -height 786 -title "リンク集ランチャー"
+```
 
-- [ ] **アイコン抽出 (`icon_windows.go`)** — GDI APIを直接syscallで叩いている自作実装。
-      `.exe` / フォルダ / 拡張子なしファイルでそれぞれ正しい画像が出るか。
-      崩れる・落ちるようなら自作をやめて既存ライブラリへの差し替えを検討。
-- [ ] **`OnFileDrop` の座標系・発火可否** — ネイティブDnDとアプリ内並び替え用の
-      HTML5 DnD（`draggable`属性）が同一WebView内で共存できるか。
-      共存できない場合、内部並び替えの実装方式を作り直す必要あり。
-- [ ] **ウィンドウリサイズ保存のタイミング** — `window.addEventListener('resize', ...)`
-      がWails WebView上で期待通り発火するか。発火しない場合は代替手段
-      （`OnBeforeClose`時のみ保存、等）に変更する。
-- [ ] **起動時のウィンドウサイズ復元** — 一瞬デフォルトサイズで表示されてから
-      リサイズされる見え方になっていないか（`app.go` の `startup()` 参照）。
-- [ ] **テーマ自動検知のレジストリキー** — 使用しているWindowsバージョンで
-      `AppsUseLightTheme` が存在するか。
-- [ ] **`cmd /c start` によるURL/ファイルオープン** — パスにスペースや特殊文字が
-      含まれる場合の挙動（現状はダブルクォート等の追加処理をしていない）。
+未指定の場合、直前終了時に保存されたウィンドウサイズ（`settings.json`）→ デフォルト値の順で決定される。
 
-## 3. 既知の未実装・簡略化した箇所（申し送り事項の対応状況）
+## データ保存先
 
-| 申し送り事項 | 対応状況 |
-|---|---|
-| 空きスロットの見た目 | 破線枠のプレースホルダーで実装（タイル/リスト両方） |
-| アイコン自動抽出の実装方法 | Windows API直叩き（`icon_windows.go`）で実装。要検証 |
-| フルパス取得方法 | Go側 `OnFileDrop` ネイティブAPIを採用（HTML5 DnDのFiles APIは未使用） |
-| 設定ファイルの分割 | `link-data.json`（リンク本体）と `settings.json`（設定）に分割 |
-| 未分類カテゴリ | カテゴリ名が空文字の場合、見出し非表示のフラット表示として統一 |
-| ドラッグ中のリアルタイムインジケーター（外部ドロップ） | **未実装**。`OnFileDrop`はドロップ確定時のみ発火するAPIのため、
-ドラッグ中のプレビュー表示には追加のイベント配線（dragover相当の中継）が必要。現状は内部並び替え時のみ枠線インジケーターあり |
-| アイコン変更UI | 簡易版（`prompt()`による絵文字入力のみ）。画像ファイル選択によるカスタムアイコンは未実装 |
+exeと同じディレクトリに以下のファイルを作成する。
+
+- `link-data.json` — 登録したリンク本体
+- `settings.json` — ウィンドウサイズ・テーマ・タブ表示設定などのアプリ設定
+
+## ドキュメント
+
+設計上の意図や、機能拡張・保守の際に踏まえておくべき制約・既知の課題は
+[`.ClaudeCode/DESIGN.md`](./.ClaudeCode/DESIGN.md) と [`.ClaudeCode/DEV_NOTES.md`](./.ClaudeCode/DEV_NOTES.md) を参照。
