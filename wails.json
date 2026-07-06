@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "link-launcher",
+  "outputfilename": "link-launcher",
+  "frontend:install": "",
+  "frontend:build": "",
+  "wailsjsdir": "",
+  "author": {
+    "name": "",
+    "email": ""
+  }
+}
