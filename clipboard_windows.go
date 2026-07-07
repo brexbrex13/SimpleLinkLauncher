@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math/bits"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -98,7 +99,8 @@ func readClipboardFilePaths() ([]string, error) {
 // 手動で削除してもらう想定。
 //
 // 【重要】GDI APIを直接syscallで叩く自作実装で、実機での動作確認をしていない。
-// 24bit/32bit(BI_RGB、非圧縮)以外のDIBフォーマットには対応していない。.ClaudeCode/DEV_NOTES.md参照。
+// 24/32bit(BI_RGB)・16/32bit(BI_BITFIELDS、多くのスクリーンショットツールが使う形式)以外の
+// DIBフォーマットには対応していない。.ClaudeCode/DEV_NOTES.md参照。
 func (a *App) PasteClipboardImage() (string, error) {
 	imgPNG, err := readClipboardImagePNG()
 	if err != nil {
@@ -152,16 +154,39 @@ func readClipboardImagePNG() ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, errors.New("invalid clipboard image size")
 	}
-	if bi.biCompression != 0 {
+
+	headerSize := uintptr(bi.biSize)
+	var redMask, greenMask, blueMask uint32
+	useMasks := false
+
+	switch bi.biCompression {
+	case 0: // BI_RGB（非圧縮）
+		if bi.biBitCount != 24 && bi.biBitCount != 32 {
+			return nil, fmt.Errorf("非対応の色数です: %dbit", bi.biBitCount)
+		}
+	case 3: // BI_BITFIELDS。Snipping Tool等の32bitスクリーンショットで一般的な形式
+		if bi.biBitCount != 16 && bi.biBitCount != 32 {
+			return nil, fmt.Errorf("非対応の色数です(BI_BITFIELDS): %dbit", bi.biBitCount)
+		}
+		useMasks = true
+		// R/G/Bの3個のDWORDカラーマスクは、クラシックなBITMAPINFOHEADER(biSize=40)
+		// フィールドの直後(オフセット40)に位置する。BITMAPV4/V5HEADERではこれらのマスク用
+		// フィールドがbiSizeに含まれているためオフセットは変わらないが、biSize=40の
+		// クラシックな形式ではマスク分(12byte)がbiSizeにカウントされておらず、
+		// ピクセルデータの開始位置もその分後ろにずれる。
+		maskBase := uintptr(unsafe.Pointer(bi)) + 40
+		if bi.biSize == 40 {
+			headerSize += 12
+		}
+		redMask = *(*uint32)(unsafe.Pointer(maskBase))
+		greenMask = *(*uint32)(unsafe.Pointer(maskBase + 4))
+		blueMask = *(*uint32)(unsafe.Pointer(maskBase + 8))
+	default:
 		return nil, errors.New("非対応の画像形式です(圧縮DIB)")
-	}
-	if bi.biBitCount != 24 && bi.biBitCount != 32 {
-		return nil, fmt.Errorf("非対応の色数です: %dbit", bi.biBitCount)
 	}
 
 	bytesPerPixel := int(bi.biBitCount) / 8
 	stride := ((width*int(bi.biBitCount) + 31) / 32) * 4
-	headerSize := uintptr(bi.biSize)
 	pixelsPtr := unsafe.Pointer(uintptr(unsafe.Pointer(bi)) + headerSize)
 	pixels := unsafe.Slice((*byte)(pixelsPtr), stride*height)
 
@@ -174,13 +199,27 @@ func readClipboardImagePNG() ([]byte, error) {
 		rowStart := srcY * stride
 		for x := 0; x < width; x++ {
 			i := rowStart + x*bytesPerPixel
-			b := pixels[i]
-			g := pixels[i+1]
-			r := pixels[i+2]
-			a := uint8(255)
-			if bytesPerPixel == 4 {
-				if v := pixels[i+3]; v != 0 {
-					a = v // アルファ0埋めのアプリがあるため、0の場合のみ不透明扱いにフォールバックする
+			var r, g, b, a uint8
+			if useMasks {
+				var raw uint32
+				if bytesPerPixel == 4 {
+					raw = uint32(pixels[i]) | uint32(pixels[i+1])<<8 | uint32(pixels[i+2])<<16 | uint32(pixels[i+3])<<24
+				} else {
+					raw = uint32(pixels[i]) | uint32(pixels[i+1])<<8
+				}
+				r = maskToU8(raw, redMask)
+				g = maskToU8(raw, greenMask)
+				b = maskToU8(raw, blueMask)
+				a = 255
+			} else {
+				b = pixels[i]
+				g = pixels[i+1]
+				r = pixels[i+2]
+				a = 255
+				if bytesPerPixel == 4 {
+					if v := pixels[i+3]; v != 0 {
+						a = v // アルファ0埋めのアプリがあるため、0の場合のみ不透明扱いにフォールバックする
+					}
 				}
 			}
 			img.Set(x, y, color.RGBA{R: r, G: g, B: b, A: a})
@@ -192,4 +231,19 @@ func readClipboardImagePNG() ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+// maskToU8 はBI_BITFIELDS形式のビットマスクに従い、生のピクセル値から1チャンネル分を
+// 8bit値へ正規化して取り出す（マスクの立っているビット幅が8bit未満/超のどちらでも対応）。
+func maskToU8(pixel, mask uint32) uint8 {
+	if mask == 0 {
+		return 0
+	}
+	shift := bits.TrailingZeros32(mask)
+	width := bits.OnesCount32(mask)
+	val := (pixel & mask) >> shift
+	if width >= 8 {
+		return uint8(val >> (width - 8))
+	}
+	return uint8(val << (8 - width))
 }
