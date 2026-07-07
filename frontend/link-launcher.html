@@ -812,10 +812,15 @@ function openEmptySlotContextMenu(e, tabId, catId, idx){
 // クリップボードの内容を空き枠へ貼り付ける。
 // 1. Explorerでコピーしたファイルオブジェクト(CF_HDROP)があれば、D&Dと同じ扱いで
 //    そのまま項目化する(Go側 PasteClipboardFiles、clipboard_windows.go参照)。
-// 2. ファイルオブジェクトが無ければテキスト(URL等)として扱い、追加モーダルにプリフィルする
+// 2. ファイルオブジェクトが無ければ、スクリーンショット等の生の画像データ(CF_DIB)を試す。
+//    見つかった場合はGo側でimages/フォルダへPNG保存し(PasteClipboardImage)、
+//    通常の画像アイテムとして登録する（保存したファイルの扱いは他のfile種別アイテムと同じで、
+//    アイテム削除時にファイル自体は削除しない。.ClaudeCode/DESIGN.md参照）。
+// 3. どちらも無ければテキスト(URL等)として扱い、追加モーダルにプリフィルする
 //    （種別は保存時にdetectType()が自動判定するため、URLはそのままURL種別になる）。
 async function pasteFromClipboard(tabId, catId, idx){
   const app = window.go && window.go.main && window.go.main.App;
+
   if (app && app.PasteClipboardFiles) {
     try {
       const files = await app.PasteClipboardFiles();
@@ -824,6 +829,18 @@ async function pasteFromClipboard(tabId, catId, idx){
         return;
       }
     } catch(e) { console.error('PasteClipboardFiles失敗', e); }
+  }
+
+  if (app && app.PasteClipboardImage) {
+    try {
+      const imagePath = await app.PasteClipboardImage();
+      if (imagePath) {
+        const base = imagePath.split(/[\\\/]/).filter(Boolean).pop() || imagePath;
+        const name = base.replace(/\.[^.]+$/, '');
+        insertItemsAt(tabId, catId, idx, [{ name, path: imagePath, type: 'image' }]);
+        return;
+      }
+    } catch(e) { console.error('PasteClipboardImage失敗', e); }
   }
 
   if (!window.runtime || !window.runtime.ClipboardGetText) {

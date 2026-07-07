@@ -37,18 +37,30 @@
   実際のインターネット上のサイトのfaviconでの表示（画質・サイズ・白背景での見え方、
   および取得できないサイトがどの程度あるか）は未検証。目立って崩れる/失敗するサイトが多い
   ようであれば、`PROGRESS.md`フェーズ2の案B（Go側フォールバック）を検討する。
-- **クリップボードのファイルオブジェクト貼り付け（`clipboard_windows.go`）** — GDI/Shell APIを
-  直接syscallで叩く自作実装で、実機での動作確認をしていない。特に:
+- **クリップボードのファイルオブジェクト貼り付け（`clipboard_windows.go`の`PasteClipboardFiles`）** —
+  GDI/Shell APIを直接syscallで叩く自作実装で、実機での動作確認をしていない。特に:
   - `OpenClipboard`が他アプリにロックされている場合の失敗時挙動（リトライ等はしていない）
   - 複数ファイルをコピーした場合の`DragQueryFileW`での列挙順序
   - フォルダ/拡張子なしファイルをコピーした場合の`ResolvePathType`との連携
   うまく動作しない場合は`icon_windows.go`と同様、自作をやめて既存ライブラリへの
   差し替えを検討する。
+- **クリップボードの画像貼り付け（`clipboard_windows.go`の`PasteClipboardImage`）** — こちらも
+  GDI APIを直接syscallで叩く自作実装で、実機での動作確認をしていない。特に:
+  - 24bit/32bit(BI_RGB、非圧縮)以外のDIBフォーマット（16bit、パレット付き8bit以下、圧縮DIB等）は
+    未対応でエラーを返す。実際にどのアプリ・操作でどの形式が来るか（Snipping Tool、ブラウザの
+    画像コピー、Excel/Wordのコピー等）は未検証。
+  - `GlobalLock`で取得したメモリを`unsafe.Pointer`でそのまま解釈しており、`go vet`が
+    `possible misuse of unsafe.Pointer`を1件報告する（syscallが返す生アドレスを最初に
+    ポインタへ変換する箇所で、Win32メモリ interop では一般的に避けられないパターン。
+    実際にはOS管理のメモリで、`OpenClipboard`〜`CloseClipboard`の間で同期的に読むだけなので
+    安全と判断しているが、実機での動作で問題が出ないかは確認が必要）。
+  - 保存先`images/`フォルダの肥大化は自動クリーンアップしない設計（意図的。`PROGRESS.md`参照）。
+    大量に貼り付けた場合の見え方はユーザー側で確認してほしい。
 - **`frontend/wailsjs/go/main/App.{js,d.ts}`の手動編集** — `wails`CLIが使えない環境のため、
-  `PasteClipboardFiles`・`ReadImageDataURI`のバインディングをこれらの自動生成ファイルへ
-  手動で追記した（実際のフロントはこれらを`import`せず`window.go.main.App.*`を直接呼ぶ
-  実装のため、動作自体には影響しない）。次回実機で`wails build`する際に、本来の自動生成結果と
-  ズレていないか確認すること。
+  `PasteClipboardFiles`・`ReadImageDataURI`・`PasteClipboardImage`のバインディングをこれらの
+  自動生成ファイルへ手動で追記した（実際のフロントはこれらを`import`せず
+  `window.go.main.App.*`を直接呼ぶ実装のため、動作自体には影響しない）。次回実機で
+  `wails build`する際に、本来の自動生成結果とズレていないか確認すること。
 - **画像ビューワ・サムネイル（`ReadImageDataURI`、`#imgViewerOverlay`）** — 拡張子ベースの
   MIME判定・Base64変換自体はプラットフォーム非依存の標準ライブラリのみで実装しており
   技術的なリスクは低いが、実機のWebView2上での見た目（大きい画像でのビューワのサイズ感、
