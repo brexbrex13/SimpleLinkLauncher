@@ -785,12 +785,23 @@ function openEmptySlotContextMenu(e, tabId, catId, idx){
   positionAndShowMenu(e);
 }
 
-// クリップボードの内容を空き枠へ貼り付ける。テキスト(URL等)はWailsランタイムの
-// ClipboardGetTextで取得し、追加モーダルにプリフィルする（種別は保存時にdetectType()が
-// 自動判定するため、URLはそのままURL種別になる）。
-// Explorerでコピーしたファイルオブジェクト(CF_HDROP)はテキストとして取得できないため、
-// このパスでは扱えない（要Go側の追加実装。.ClaudeCode/PROGRESS.mdフェーズ3参照）。
+// クリップボードの内容を空き枠へ貼り付ける。
+// 1. Explorerでコピーしたファイルオブジェクト(CF_HDROP)があれば、D&Dと同じ扱いで
+//    そのまま項目化する(Go側 PasteClipboardFiles、clipboard_windows.go参照)。
+// 2. ファイルオブジェクトが無ければテキスト(URL等)として扱い、追加モーダルにプリフィルする
+//    （種別は保存時にdetectType()が自動判定するため、URLはそのままURL種別になる）。
 async function pasteFromClipboard(tabId, catId, idx){
+  const app = window.go && window.go.main && window.go.main.App;
+  if (app && app.PasteClipboardFiles) {
+    try {
+      const files = await app.PasteClipboardFiles();
+      if (files && files.length > 0) {
+        insertItemsAt(tabId, catId, idx, files);
+        return;
+      }
+    } catch(e) { console.error('PasteClipboardFiles失敗', e); }
+  }
+
   if (!window.runtime || !window.runtime.ClipboardGetText) {
     showToast('クリップボードの読み取りに対応していません');
     return;
@@ -799,10 +810,40 @@ async function pasteFromClipboard(tabId, catId, idx){
   try { text = await window.runtime.ClipboardGetText(); } catch(e) { console.error(e); }
   text = (text || '').trim();
   if (!text) {
-    showToast('クリップボードにテキストがありません');
+    showToast('クリップボードが空です');
     return;
   }
   openAddModal({ tabId, catId, idx, prefillPath: text });
+}
+
+// D&D(onFilesDropped)と同じ形の解決済みアイテム一覧を、指定の空き枠に挿入する。
+// 1件目はその空き枠自体を埋め、2件目以降は直後に新しいスロットとして挿入する
+// （同カテゴリ内での「空き枠を埋める」操作(openAddModalのisFill)と同じ挙動に揃える）。
+function insertItemsAt(tabId, catId, idx, rawItems){
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const cat = tab.categories.find(c=>c.id===catId);
+  if (!cat) return;
+  const newItems = rawItems.map(it=>({
+    id: newId('item'), name: it.name, type: it.type, path: it.path, icon:{kind:'none', value:null}
+  }));
+  if (newItems.length === 0) return;
+  cat.items[idx] = newItems[0];
+  if (newItems.length > 1) {
+    cat.items.splice(idx + 1, 0, ...newItems.slice(1));
+  }
+  persistData();
+  render();
+
+  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）
+  newItems.forEach(item=>{
+    window.go.main.App.ExtractIcon(item.path).then(dataUri=>{
+      if (!dataUri) return;
+      item.icon = { kind:'auto', value: dataUri };
+      persistData();
+      renderContent();
+    }).catch(()=>{ /* 抽出失敗時は種別グリフのままにする */ });
+  });
 }
 
 function renderListRow(item, tabId, catId, idx){
