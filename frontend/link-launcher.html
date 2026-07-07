@@ -769,9 +769,11 @@ function openEmptySlotContextMenu(e, tabId, catId, idx){
   menu.innerHTML = `
     <div class="ctxTitle">空き枠</div>
     <button class="ctxItem" data-act="fill">＋ ここに項目を追加</button>
+    <button class="ctxItem" data-act="paste">📋 クリップボードから貼り付け</button>
     <button class="ctxItem danger" data-act="remove">🗑 この空き枠を削除</button>
   `;
   menu.querySelector('[data-act="fill"]').onclick = ()=>{ closeContextMenu(); openAddModal({ tabId, catId, idx }); };
+  menu.querySelector('[data-act="paste"]').onclick = ()=>{ closeContextMenu(); pasteFromClipboard(tabId, catId, idx); };
   menu.querySelector('[data-act="remove"]').onclick = ()=>{
     closeContextMenu();
     const tab = findTab(tabId);
@@ -781,6 +783,26 @@ function openEmptySlotContextMenu(e, tabId, catId, idx){
     renderContent();
   };
   positionAndShowMenu(e);
+}
+
+// クリップボードの内容を空き枠へ貼り付ける。テキスト(URL等)はWailsランタイムの
+// ClipboardGetTextで取得し、追加モーダルにプリフィルする（種別は保存時にdetectType()が
+// 自動判定するため、URLはそのままURL種別になる）。
+// Explorerでコピーしたファイルオブジェクト(CF_HDROP)はテキストとして取得できないため、
+// このパスでは扱えない（要Go側の追加実装。.ClaudeCode/PROGRESS.mdフェーズ3参照）。
+async function pasteFromClipboard(tabId, catId, idx){
+  if (!window.runtime || !window.runtime.ClipboardGetText) {
+    showToast('クリップボードの読み取りに対応していません');
+    return;
+  }
+  let text = '';
+  try { text = await window.runtime.ClipboardGetText(); } catch(e) { console.error(e); }
+  text = (text || '').trim();
+  if (!text) {
+    showToast('クリップボードにテキストがありません');
+    return;
+  }
+  openAddModal({ tabId, catId, idx, prefillPath: text });
 }
 
 function renderListRow(item, tabId, catId, idx){
@@ -1239,6 +1261,9 @@ function openAddModal(ctx){
       document.getElementById('fName').value = base;
     }
   };
+  if (ctx && ctx.prefillPath) {
+    fillFromPath(ctx.prefillPath);
+  }
 
   const close = ()=>{ overlay.style.display = 'none'; };
 
