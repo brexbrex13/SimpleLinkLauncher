@@ -117,9 +117,11 @@
   .listRow.emptySlot { opacity:.5; border-style:dashed; cursor:default; }
   .badge2 { font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px; flex:0 0 auto; }
 
-  .iconWrap { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .iconWrap { position:relative; width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
   .iconWrap.sm { width:26px; height:26px; border-radius:7px; }
   .iconWrap img { width:60%; height:60%; object-fit:contain; }
+  /* favicon: 種別グリフの上に重ねて表示し、読み込み失敗時はonerrorで自身を削除してグリフに戻す */
+  .iconWrap img.favicon { position:absolute; inset:0; margin:auto; background:#fff; border-radius:30%; padding:3px; box-sizing:border-box; }
 
   .searchMeta { font-size:12px; color:var(--textSecondary); margin-bottom:12px; }
   .searchMeta b { color:var(--accent); }
@@ -226,7 +228,28 @@ function iconWrapHtml(item, size){
     }
     return `<span class="${cls}" style="background:${bg};"><img src="${item.icon.value}"></span>`;
   }
-  return `<span class="${cls}" style="background:${bg};">${glyphSvg(item.type, Math.round(size*0.5))}</span>`;
+  const glyph = glyphSvg(item.type, Math.round(size*0.5));
+  if (item.type === 'url') {
+    const favicon = faviconUrl(item.path);
+    if (favicon) {
+      // faviconを種別グリフの上に重ねる。<img>の読み込みはCORSの影響を受けないため、
+      // Go側を経由せずフロントだけで完結できる(.ClaudeCode/DESIGN.md参照)。
+      // 読み込み失敗時はonerrorで自身を削除し、下敷きのグリフをそのまま見せる。
+      return `<span class="${cls}" style="background:${bg};">${glyph}<img class="favicon" src="${favicon}" onerror="this.remove()"></span>`;
+    }
+  }
+  return `<span class="${cls}" style="background:${bg};">${glyph}</span>`;
+}
+
+// URLのオリジンから favicon.ico の直リンクURLを組み立てる。http/https以外や不正なURLはnullを返す。
+function faviconUrl(path){
+  try {
+    const u = new URL(path);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return `${u.protocol}//${u.host}/favicon.ico`;
+  } catch(e) {
+    return null;
+  }
 }
 
 // ---- ID生成 ----
