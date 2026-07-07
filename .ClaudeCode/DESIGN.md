@@ -38,8 +38,8 @@
 `wails.json` の `AssetServer.Assets` は常に `nil` にしている（`main.go`）。埋め込みindex.htmlが
 Handlerより優先されてしまう問題を避けるため。
 
-`frontend/link-launcher.html` 自体は現時点でこのリポジトリにコミットされていない
-（詳細は [`DEV_NOTES.md`](./DEV_NOTES.md) を参照）。
+embedしていない分、配布時は `frontend/link-launcher.html` を別途同梱する必要がある。
+パッケージング方法は [`DEV_NOTES.md`](./DEV_NOTES.md) の「配布パッケージング」を参照。
 
 ## ウィンドウサイズの優先順位
 
