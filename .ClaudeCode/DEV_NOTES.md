@@ -23,6 +23,14 @@
   `AppsUseLightTheme` が存在するか未検証。
 - **`cmd /c start` によるURL/ファイルオープン** — パスにスペースや特殊文字が含まれる場合の
   挙動未検証（現状はダブルクォート等の追加処理をしていない）。
+- **フレームレスウィンドウ（`main.go`の`Frameless:true`）** — Wailsのソースコード
+  （`internal/frontend/desktop/windows/frontend.go`等）を読んで動作原理は確認済みだが、
+  実機でのドラッグ移動・端でのリサイズ・Aeroシャドウ/角丸の見た目は未検証。
+  `--wails-draggable:drag`(ツールバー全体)と`--wails-draggable:no-drag`(ボタン/入力欄)の
+  組み合わせで「ドラッグで移動」と「ボタンのクリック」が両立するかも実機確認が必要。
+- **`window.runtime.Quit()`での終了** — `OnBeforeClose`(`SaveWindowSize`)を経由することは
+  Wailsのソースコードで確認済みだが、実機での動作(ウィンドウ位置/サイズが次回起動時に
+  正しく復元されるか)は未検証。
 
 ## 意図的に簡略化・未実装にした箇所
 
