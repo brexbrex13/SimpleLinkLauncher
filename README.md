@@ -48,6 +48,20 @@ wails build
 - **exe単体（ポータブル版）を配布する場合**: `build\bin\link-launcher.exe` と同じ階層に
   `frontend\link-launcher.html` を手動でコピーしてから配布する。
 
+## リリース
+
+`v*.*.*` 形式のタグ（例: `v1.0.0`）をpushすると、GitHub Actions
+（`.github/workflows/release.yml`）が自動的に以下を行いGitHub Releaseを作成する。
+
+- `wails build --nsis` でexe本体とNSISインストーラをビルド
+- `frontend/link-launcher.html` を同梱したポータブル版ZIP（`link-launcher-<tag>-windows-portable.zip`）を作成
+- インストーラ（`link-launcher-<tag>-windows-installer.exe`）とあわせてReleaseの資産としてアップロード
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
 ## 起動オプション
 
 ```bat

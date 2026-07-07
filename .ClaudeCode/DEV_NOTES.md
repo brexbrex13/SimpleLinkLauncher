@@ -45,5 +45,9 @@
   `frontend\link-launcher.html` を `$INSTDIR\frontend\` へ配置する `File` 命令を追加済み。
   `wails_tools.nsh` は `wails build` のたびに自動生成し直されるため、同梱処理は
   自動生成されない `project.nsi` 側に書いてある。
-- ポータブル版（exe単体配布）: 自動化されていない。`build\bin\link-launcher.exe` と同じ階層に
-  `frontend\link-launcher.html` を手動でコピーする必要がある（README参照）。
+- ポータブル版（exe単体配布）: `v*.*.*` タグをpushすると `.github/workflows/release.yml` が
+  `wails build --nsis` の実行、ポータブルZIPへの同梱、GitHub Releaseへのアップロードまで自動で行う
+  （手順はREADMEの「リリース」参照）。ワークフロー自体はWindows実機での
+  `wails build --nsis` 成功を前提にしており、CI上での実行結果はまだ確認できていない
+  （NSISが `choco install nsis` で問題なく入るか、`link-launcher-amd64-installer.exe`
+  というファイル名で出力されるか、等）。初回タグpush時にActionsの実行結果を確認すること。

@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      # フロントエンド(frontend/link-launcher.html)はGoバイナリにembedしない設計のため
+      # (.ClaudeCode/DESIGN.md参照)、exeと別に同梱する必要がある。
+      # インストーラ版はbuild/windows/installer/project.nsiが同梱を行うが、
+      # ポータブル版(exe単体)はこのワークフローでzip化時に手動で同梱する。
+      - name: Build (exe + NSIS installer)
+        run: wails build --nsis
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $stage = "dist/link-launcher"
+          New-Item -ItemType Directory -Force -Path "$stage/frontend" | Out-Null
+          Copy-Item "build/bin/link-launcher.exe" "$stage/"
+          Copy-Item "frontend/link-launcher.html" "$stage/frontend/"
+          Compress-Archive -Path "$stage/*" -DestinationPath "link-launcher-$version-windows-portable.zip"
+          Copy-Item "build/bin/link-launcher-amd64-installer.exe" "link-launcher-$version-windows-installer.exe"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            link-launcher-*-windows-portable.zip
+            link-launcher-*-windows-installer.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
