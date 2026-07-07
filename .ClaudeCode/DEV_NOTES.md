@@ -38,6 +38,8 @@
 
 ## リポジトリの状態に関する既知の問題
 
-- `frontend/link-launcher.html`（実際のUI本体）がリポジトリに含まれていない。
+- `frontend/link-launcher.html`（実際のUI本体）が **gitの全履歴・全ブランチを通じて一度も
+  コミットされていない**（`git log --all -- '*.html'` が空）。`build/` 配下にも存在しない。
   `frontend/wailsjs/` の自動生成バインディングのみが存在する状態で、このままでは
-  `wails build` / `wails dev` を実行してもUIが表示されない。フロントエンド一式の追加が必要。
+  `wails build` / `wails dev` を実行してもUIが表示されない。
+  ローカル環境にのみ存在するファイルと思われるため、次回コミットする際に追加すること。
