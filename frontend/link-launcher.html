@@ -33,6 +33,7 @@
     --badgeFileFg:#5b5d63; --badgeFileBg:rgba(0,0,0,0.07);
     --badgeFolderFg:#9A6A0C; --badgeFolderBg:rgba(176,122,18,0.15);
     --badgeExeFg:#B92B2B; --badgeExeBg:rgba(185,43,43,0.12);
+    --badgeImageFg:#7C4FBF; --badgeImageBg:rgba(124,79,191,0.12);
   }
   /* ==== テーマ変数（ダーク） ==== */
   html[data-theme="dark"] {
@@ -48,6 +49,7 @@
     --badgeFileFg:#bdbfc4; --badgeFileBg:rgba(255,255,255,0.09);
     --badgeFolderFg:#E3BC63; --badgeFolderBg:rgba(227,188,99,0.16);
     --badgeExeFg:#c94b4b; --badgeExeBg:rgba(201,75,75,0.22);
+    --badgeImageFg:#B79CE8; --badgeImageBg:rgba(183,156,232,0.18);
   }
 
   ::-webkit-scrollbar { width: 11px; height: 11px; }
@@ -160,6 +162,14 @@
   .btnPrimary { height:34px; padding:0 18px; border-radius:6px; border:0; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
   .btnPrimary:hover { background:var(--accentHover); }
   .errMsg { font-size:12px; color:var(--danger); margin:-6px 0 10px; }
+
+  /* 画像ビューワ（コンパクト表示専用。フォーム系モーダルとは別の独立したオーバーレイにして
+     #modal側のスタイルを汚さないようにしている） */
+  #imgViewerOverlay { position:fixed; inset:0; z-index:70; background:var(--overlay); display:none; align-items:center; justify-content:center; }
+  #imgViewerBox { position:relative; max-width:92vw; max-height:88vh; }
+  #imgViewerImg { display:block; max-width:92vw; max-height:88vh; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.5); background:var(--card); }
+  #imgViewerClose { position:absolute; top:-14px; right:-14px; width:30px; height:30px; border:0; border-radius:50%; background:var(--menuBg); color:var(--textPrimary); box-shadow:0 4px 14px var(--shadow); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #imgViewerClose:hover { background:var(--danger); color:#fff; }
 </style>
 </head>
 <body>
@@ -200,6 +210,13 @@
   <div id="modal"></div>
 </div>
 
+<div id="imgViewerOverlay">
+  <div id="imgViewerBox">
+    <button id="imgViewerClose" title="閉じる">✕</button>
+    <img id="imgViewerImg" src="" alt="">
+  </div>
+</div>
+
 <script>
 /* =========================================================
    リンク集ランチャー フロントエンド (Vanilla JS)
@@ -211,10 +228,11 @@ const GLYPHS = {
   url:    '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 2.4 3 14.6 0 17M12 3.5c-3 2.4-3 14.6 0 17"/>',
   file:   '<path d="M14 3.5H7A2 2 0 0 0 5 5.5v13A2 2 0 0 0 7 20.5h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6M9 16.5h6"/>',
   folder: '<path d="M3 7.5a2 2 0 0 1 2-2h3.8l2 2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-  exe:    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/>'
+  exe:    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/>',
+  image:  '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15l-5-5-4 4-3-3-6 6"/>'
 };
-const TYPE_COLOR = { url:'#2F6FB3', file:'#5b5d63', folder:'#C98A0E', exe:'#B92B2B' };
-const TYPE_LABEL = { url:'URL', file:'ファイル', folder:'フォルダ', exe:'EXE' };
+const TYPE_COLOR = { url:'#2F6FB3', file:'#5b5d63', folder:'#C98A0E', exe:'#B92B2B', image:'#7C4FBF' };
+const TYPE_LABEL = { url:'URL', file:'ファイル', folder:'フォルダ', exe:'EXE', image:'画像' };
 
 function glyphSvg(type, size){
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[type]||GLYPHS.url}</svg>`;
@@ -394,6 +412,11 @@ function bindStaticEvents(){
     if (e.target.id === 'modalOverlay' && modalMouseDownOnBackdrop) closeModal();
   });
 
+  document.getElementById('imgViewerClose').addEventListener('click', closeImageViewer);
+  document.getElementById('imgViewerOverlay').addEventListener('click', (e)=>{
+    if (e.target.id === 'imgViewerOverlay') closeImageViewer();
+  });
+
   bindWheelTabSwitch();
 }
 
@@ -407,7 +430,8 @@ function setView(v){
 
 function isOverlayOpen(){
   return document.getElementById('modalOverlay').style.display === 'flex'
-      || document.getElementById('ctxOverlay').style.display === 'block';
+      || document.getElementById('ctxOverlay').style.display === 'block'
+      || document.getElementById('imgViewerOverlay').style.display === 'flex';
 }
 
 // アクティブタブをdir(+1/-1)分だけ進める。端はクランプ(ループしない)。検索結果表示中は何もしない。
@@ -835,8 +859,10 @@ function insertItemsAt(tabId, catId, idx, rawItems){
   persistData();
   render();
 
-  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）
+  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）。
+  // 画像は実際の画像内容をサムネイルにする（OSのシェルアイコンより見た目が良いため）。
   newItems.forEach(item=>{
+    if (item.type === 'image') { fetchImageThumbnail(item); return; }
     window.go.main.App.ExtractIcon(item.path).then(dataUri=>{
       if (!dataUri) return;
       item.icon = { kind:'auto', value: dataUri };
@@ -973,7 +999,7 @@ function onFilesDropped(payload){
   const newItems = payload.items.map(it=>({
     id: newId('item'),
     name: it.name,
-    type: it.type, // "file" | "folder" | "exe"
+    type: it.type, // "file" | "folder" | "exe" | "image"
     path: it.path,
     icon: { kind:'none', value:null }
   }));
@@ -982,8 +1008,10 @@ function onFilesDropped(payload){
   persistData();
   render();
 
-  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）
+  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）。
+  // 画像は実際の画像内容をサムネイルにする（OSのシェルアイコンより見た目が良いため）。
   newItems.forEach(item=>{
+    if (item.type === 'image') { fetchImageThumbnail(item); return; }
     window.go.main.App.ExtractIcon(item.path).then(dataUri=>{
       if (!dataUri) return;
       item.icon = { kind:'auto', value: dataUri };
@@ -1041,9 +1069,50 @@ function fallbackDropTarget(){
 // アイテムを開く
 // =========================================================
 function handleOpen(item){
+  if (item.type === 'image') {
+    openImageViewer(item);
+    return;
+  }
   window.go.main.App.OpenPath(item.path).catch(e=>{
     showToast('開けませんでした: ' + e);
   });
+}
+
+// =========================================================
+// 画像ビューワ（コンパクト表示）
+// =========================================================
+// file://をWebViewに直接読み込ませるとセキュリティ制約に引っかかる可能性があるため、
+// 常にGo側(ReadImageDataURI)で読み込んでBase64 data URIとして受け取る(.ClaudeCode/DESIGN.md参照)。
+async function openImageViewer(item){
+  let dataUri = '';
+  try {
+    dataUri = await window.go.main.App.ReadImageDataURI(item.path);
+  } catch(e) {
+    showToast('画像を開けませんでした: ' + e);
+    return;
+  }
+  if (!dataUri) {
+    showToast('画像を開けませんでした');
+    return;
+  }
+  document.getElementById('imgViewerImg').src = dataUri;
+  document.getElementById('imgViewerOverlay').style.display = 'flex';
+}
+function closeImageViewer(){
+  document.getElementById('imgViewerOverlay').style.display = 'none';
+  document.getElementById('imgViewerImg').src = '';
+}
+
+// 画像アイテムのアイコンを実画像のサムネイルに差し替える。
+// ExtractIcon(OSのシェルアイコン)ではなく実際の画像内容を使うことで、
+// 視覚的ダッシュボードとしての見た目を優先する。失敗時は種別グリフのままにする。
+function fetchImageThumbnail(item){
+  window.go.main.App.ReadImageDataURI(item.path).then(dataUri=>{
+    if (!dataUri) return;
+    item.icon = { kind:'auto', value: dataUri };
+    persistData();
+    renderContent();
+  }).catch(()=>{});
 }
 
 // alert()の代替の簡易トースト通知。
@@ -1325,7 +1394,9 @@ function openAddModal(ctx){
       const type = await detectType(p, 'file');
       const base = p.split(/[\\\/]/).filter(Boolean).pop() || p;
       const name = type === 'folder' ? base : base.replace(/\.[^.]+$/, '');
-      targetCat.items.push({ id:newId('item'), name, path:p, type, icon:{kind:'none', value:null} });
+      const newItem = { id:newId('item'), name, path:p, type, icon:{kind:'none', value:null} };
+      targetCat.items.push(newItem);
+      if (type === 'image') fetchImageThumbnail(newItem);
     }
     persistData();
     close();
@@ -1372,8 +1443,11 @@ function openAddModal(ctx){
         // 別カテゴリを選んだ場合は末尾に追加し、元の空きスロットはそのまま残す
         targetCat.items.push(newItem);
       }
+      if (type === 'image') fetchImageThumbnail(newItem);
     } else {
-      targetCat.items.push({ id:newId('item'), name, path, type, icon:{kind:'none', value:null} });
+      const newItem = { id:newId('item'), name, path, type, icon:{kind:'none', value:null} };
+      targetCat.items.push(newItem);
+      if (type === 'image') fetchImageThumbnail(newItem);
     }
     persistData();
     close();

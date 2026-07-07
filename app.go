@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -226,7 +227,19 @@ func (a *App) BrowseFolder() (string, error) {
 	})
 }
 
-// ResolvePathType は実在するファイル/フォルダのパスから種別("file"|"folder"|"exe")を判定する。
+// imageMimeTypes はサムネイル表示・ビューワ対応する画像拡張子とMIMEタイプの対応表。
+// ResolvePathType の画像判定と ReadImageDataURI の両方で使う。
+var imageMimeTypes = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".bmp":  "image/bmp",
+	".webp": "image/webp",
+	".ico":  "image/x-icon",
+}
+
+// ResolvePathType は実在するファイル/フォルダのパスから種別("file"|"folder"|"exe"|"image")を判定する。
 // URLや存在しないパスの場合はエラーを返す（呼び出し側でURL扱いにフォールバックする想定）。
 func (a *App) ResolvePathType(path string) (string, error) {
 	info, err := os.Stat(path)
@@ -236,10 +249,30 @@ func (a *App) ResolvePathType(path string) (string, error) {
 	if info.IsDir() {
 		return "folder", nil
 	}
-	if strings.EqualFold(filepath.Ext(path), ".exe") {
+	ext := strings.ToLower(filepath.Ext(path))
+	if _, ok := imageMimeTypes[ext]; ok {
+		return "image", nil
+	}
+	if ext == ".exe" {
 		return "exe", nil
 	}
 	return "file", nil
+}
+
+// ReadImageDataURI は画像ファイルを読み込みBase64データURIとして返す。
+// コンパクトビューワでの表示、および一覧でのサムネイルアイコンに使う。
+// file://をWebViewに直接読み込ませるとセキュリティ制約に引っかかる可能性があるため、
+// 常にGo側で読み込んでdata URI化する（.ClaudeCode/DESIGN.md参照）。
+func (a *App) ReadImageDataURI(path string) (string, error) {
+	mime, ok := imageMimeTypes[strings.ToLower(filepath.Ext(path))]
+	if !ok {
+		return "", fmt.Errorf("サポートしていない画像形式です: %s", path)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
 // ---- 外部ファイルのドラッグ&ドロップ受信 ----

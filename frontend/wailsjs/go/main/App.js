@@ -38,6 +38,10 @@ export function PasteClipboardFiles() {
   return window['go']['main']['App']['PasteClipboardFiles']();
 }
 
+export function ReadImageDataURI(arg1) {
+  return window['go']['main']['App']['ReadImageDataURI'](arg1);
+}
+
 export function ResolvePathType(arg1) {
   return window['go']['main']['App']['ResolvePathType'](arg1);
 }
