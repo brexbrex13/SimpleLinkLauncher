@@ -251,9 +251,10 @@ type DroppedItem struct {
 	Type string `json:"type"` // "file" | "folder" | "exe"
 }
 
-// onFileDrop はWailsのネイティブOnFileDropから呼ばれる（options.AppにBindしてある）。
-// 座標(x,y)とパス一覧をフロントへイベントで転送する。挿入位置の判定はフロント側で行う。
-func (a *App) onFileDrop(x, y int, paths []string) {
+// buildDroppedItems はパス一覧を種別判定して DroppedItem に変換する。
+// 存在しない・判定できないパスはスキップする。onFileDrop と PasteClipboardFiles
+// (clipboard_windows.go) の共通処理。
+func (a *App) buildDroppedItems(paths []string) []DroppedItem {
 	items := make([]DroppedItem, 0, len(paths))
 	for _, p := range paths {
 		t, err := a.ResolvePathType(p)
@@ -267,6 +268,13 @@ func (a *App) onFileDrop(x, y int, paths []string) {
 		}
 		items = append(items, DroppedItem{Name: name, Path: p, Type: t})
 	}
+	return items
+}
+
+// onFileDrop はWailsのネイティブOnFileDropから呼ばれる（options.AppにBindしてある）。
+// 座標(x,y)とパス一覧をフロントへイベントで転送する。挿入位置の判定はフロント側で行う。
+func (a *App) onFileDrop(x, y int, paths []string) {
+	items := a.buildDroppedItems(paths)
 	if a.ctx == nil || len(items) == 0 {
 		return
 	}

@@ -34,6 +34,10 @@ export function OpenPath(arg1) {
   return window['go']['main']['App']['OpenPath'](arg1);
 }
 
+export function PasteClipboardFiles() {
+  return window['go']['main']['App']['PasteClipboardFiles']();
+}
+
 export function ResolvePathType(arg1) {
   return window['go']['main']['App']['ResolvePathType'](arg1);
 }
