@@ -86,7 +86,16 @@
 `frontend/link-launcher.html` はexeにembedされないため、配布物には別途同梱する必要がある
 （詳細は [`DESIGN.md`](./DESIGN.md) の「アセットハンドラ」節を参照）。NSISインストーラ
 （`build/windows/installer/project.nsi`）・GitHub Actions（`.github/workflows/release.yml`）
-双方とも同梱するようにしてあるが、ワークフロー自体はWindows実機での`wails build --nsis`成功を
-前提にしており、CI上での実行結果はまだ確認できていない（NSISが`choco install nsis`で問題なく
-入るか、`link-launcher-amd64-installer.exe`というファイル名で出力されるか、等）。
-初回タグpush時にActionsの実行結果を確認すること。
+双方とも同梱するようにしてある。
+
+**v0.1.0タグでの初回実行で判明した既知の問題（修正済み）**: `choco install nsis`はマシンの
+PATHを更新するが、既に起動済みのGitHub Actionsランナープロセスはそれを再読込しないため、
+後続ステップから`makensis`が見つからず、`wails build --nsis`は（エラーにはならず）
+警告を出すだけでインストーラexeを生成しない。結果としてポータブルZIPの梱包処理内で
+存在しないインストーラexeをコピーしようとして失敗し、ジョブ全体が失敗、
+Release作成もスキップされていた。`Install NSIS`ステップで`$GITHUB_PATH`に
+`C:\Program Files (x86)\NSIS`を明示的に追記することで解決。再発防止のため、
+NSISインストール直後に`makensis -VERSION`で疎通確認するステップと、ポータブルZIP/
+インストーラの梱包を別ステップに分離（片方が失敗してももう片方はReleaseに上がる）、
+`Create Release`に`if: ${{ !cancelled() }}`を追加。次回タグpush時にActionsの
+実行結果を確認すること（インストーラが正しく作られるか、ファイル名が想定通りか等）。
