@@ -88,6 +88,12 @@ Section
 
     !insertmacro wails.files
 
+    # frontendはGoバイナリにembedしていないため、exeと同じ階層に別途配置する必要がある
+    # (.ClaudeCode/DESIGN.md 参照)。
+    SetOutPath "$INSTDIR\frontend"
+    File "..\..\..\frontend\link-launcher.html"
+    SetOutPath $INSTDIR
+
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 

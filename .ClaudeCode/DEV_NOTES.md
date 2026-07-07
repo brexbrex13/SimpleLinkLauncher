@@ -36,10 +36,14 @@
 | ドラッグ中のリアルタイムインジケーター（外部ドロップ） | 未実装。`OnFileDrop`はドロップ確定時のみ発火するAPIのため、ドラッグ中のプレビュー表示には追加のイベント配線（dragover相当の中継）が必要。現状は内部並び替え時のみ枠線インジケーターあり |
 | アイコン変更UI | 簡易版（`prompt()`による絵文字入力のみ）。画像ファイル選択によるカスタムアイコンは未実装 |
 
-## リポジトリの状態に関する既知の問題
+## 配布パッケージング
 
-- `frontend/link-launcher.html`（実際のUI本体）が **gitの全履歴・全ブランチを通じて一度も
-  コミットされていない**（`git log --all -- '*.html'` が空）。`build/` 配下にも存在しない。
-  `frontend/wailsjs/` の自動生成バインディングのみが存在する状態で、このままでは
-  `wails build` / `wails dev` を実行してもUIが表示されない。
-  ローカル環境にのみ存在するファイルと思われるため、次回コミットする際に追加すること。
+`frontend/link-launcher.html` はexeにembedされないため、配布物には別途同梱する必要がある
+（詳細は [`DESIGN.md`](./DESIGN.md) の「アセットハンドラ」節を参照）。
+
+- NSISインストーラ（`wails build --nsis`）: `build/windows/installer/project.nsi` に
+  `frontend\link-launcher.html` を `$INSTDIR\frontend\` へ配置する `File` 命令を追加済み。
+  `wails_tools.nsh` は `wails build` のたびに自動生成し直されるため、同梱処理は
+  自動生成されない `project.nsi` 側に書いてある。
+- ポータブル版（exe単体配布）: 自動化されていない。`build\bin\link-launcher.exe` と同じ階層に
+  `frontend\link-launcher.html` を手動でコピーする必要がある（README参照）。

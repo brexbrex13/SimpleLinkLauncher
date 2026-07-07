@@ -36,6 +36,18 @@ wails build
 
 生成された `build\bin\link-launcher.exe` を実行する。
 
+### 配布時の注意（HTMLは同梱されない）
+
+本アプリはフロントエンド（`frontend/link-launcher.html`）をexeにembedせず、実行時に
+`exe と同じディレクトリの frontend\link-launcher.html` をディスクから読み込む設計になっている
+（理由は [`.ClaudeCode/DESIGN.md`](./.ClaudeCode/DESIGN.md) 参照）。そのため配布時は exe 単体ではなく、
+`frontend\link-launcher.html` を同梱する必要がある。
+
+- **`wails build --nsis` でインストーラを作る場合**: `build/windows/installer/project.nsi` で
+  `frontend\link-launcher.html` をインストール先へ配置するようにしてあるため、追加作業は不要。
+- **exe単体（ポータブル版）を配布する場合**: `build\bin\link-launcher.exe` と同じ階層に
+  `frontend\link-launcher.html` を手動でコピーしてから配布する。
+
 ## 起動オプション
 
 ```bat

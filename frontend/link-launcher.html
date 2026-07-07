@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<!--
+  link-launcher フロントエンド (frontend/link-launcher.html)
+
+  著作権は放棄する（CC0相当）。自由に複製・改変・再配布して構わない。
+  本ファイルの利用によって生じたいかなる不具合・損害についても作者は責任を負わない。
+  無保証(AS IS)で提供する。
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リンク集ランチャー</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+    background: var(--page);
+    color: var(--textPrimary);
+  }
+  /* ==== テーマ変数（ライト） ==== */
+  html[data-theme="light"] {
+    --page:#dce0e6; --winBg:#f5f5f6; --commandBar:#fafafa; --tabStripBg:#f0f1f3;
+    --content:#fafafa; --card:#ffffff; --cardHover:#f6f7f8; --cardBorder:rgba(0,0,0,0.09);
+    --divider:rgba(0,0,0,0.09); --textPrimary:#1b1b1f; --textSecondary:#5b5d63; --textMuted:#8b8e95;
+    --inputBg:#ffffff; --inputBorder:rgba(0,0,0,0.16); --segBg:rgba(0,0,0,0.06);
+    --rowHover:rgba(0,0,0,0.05); --dropBg:rgba(0,0,0,0.02);
+    --menuBg:#ffffff; --menuBorder:rgba(0,0,0,0.12); --overlay:rgba(0,0,0,0.32);
+    --accent:#B92B2B; --accentHover:#9c2020; --accentSoft:rgba(185,43,43,0.12); --shadow:rgba(0,0,0,0.12);
+    --danger:#C42B1C; --dangerSoft:rgba(196,43,28,0.10);
+    --badgeUrlFg:#0F6CBD; --badgeUrlBg:rgba(15,108,189,0.12);
+    --badgeFileFg:#5b5d63; --badgeFileBg:rgba(0,0,0,0.07);
+    --badgeFolderFg:#9A6A0C; --badgeFolderBg:rgba(176,122,18,0.15);
+    --badgeExeFg:#B92B2B; --badgeExeBg:rgba(185,43,43,0.12);
+  }
+  /* ==== テーマ変数（ダーク） ==== */
+  html[data-theme="dark"] {
+    --page:#1c1d20; --winBg:#232427; --commandBar:#2a2b2f; --tabStripBg:#26272a;
+    --content:#28292c; --card:#323337; --cardHover:#3b3c41; --cardBorder:rgba(255,255,255,0.10);
+    --divider:rgba(255,255,255,0.10); --textPrimary:#e9e9ea; --textSecondary:#b6b8bd; --textMuted:#8b8d93;
+    --inputBg:#323337; --inputBorder:rgba(255,255,255,0.18); --segBg:rgba(255,255,255,0.08);
+    --rowHover:rgba(255,255,255,0.07); --dropBg:rgba(255,255,255,0.04);
+    --menuBg:#323337; --menuBorder:rgba(255,255,255,0.14); --overlay:rgba(0,0,0,0.5);
+    --accent:#c94b4b; --accentHover:#d96a6a; --accentSoft:rgba(201,75,75,0.22); --shadow:rgba(0,0,0,0.4);
+    --danger:#F08A8A; --dangerSoft:rgba(240,138,138,0.16);
+    --badgeUrlFg:#6BB0EE; --badgeUrlBg:rgba(107,176,238,0.16);
+    --badgeFileFg:#bdbfc4; --badgeFileBg:rgba(255,255,255,0.09);
+    --badgeFolderFg:#E3BC63; --badgeFolderBg:rgba(227,188,99,0.16);
+    --badgeExeFg:#c94b4b; --badgeExeBg:rgba(201,75,75,0.22);
+  }
+
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-thumb { background: rgba(140,140,140,0.45); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  #app { display:flex; flex-direction:column; height:100vh; background:var(--winBg); }
+
+  /* コマンドバー */
+  #commandBar { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--commandBar); border-bottom:1px solid var(--divider); }
+  #btnAdd { display:flex; align-items:center; gap:7px; height:34px; padding:0 14px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+  #btnAdd:hover { background:var(--accentHover); }
+  #btnTheme { height:34px; width:34px; border:0; border-radius:6px; background:transparent; color:var(--textSecondary); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #btnTheme:hover { background:var(--rowHover); }
+  .searchWrap { position:relative; flex:1 1 auto; max-width:470px; }
+  .searchWrap svg.searchIcon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--textMuted); }
+  #searchInput { width:100%; height:36px; padding:0 34px; border-radius:6px; border:1px solid var(--inputBorder); background:var(--inputBg); color:var(--textPrimary); font-size:13px; outline:none; }
+  #searchInput:focus { border-color:var(--accent); }
+  #btnClearSearch { position:absolute; right:8px; top:50%; transform:translateY(-50%); width:22px; height:22px; border:0; border-radius:4px; background:transparent; color:var(--textMuted); cursor:pointer; display:none; align-items:center; justify-content:center; }
+  #btnClearSearch:hover { background:var(--rowHover); }
+  #viewToggle { display:flex; gap:2px; padding:3px; border-radius:7px; background:var(--segBg); margin-left:auto; }
+  .segBtn { display:flex; align-items:center; gap:6px; height:28px; padding:0 13px; border:0; border-radius:5px; font-size:12.5px; font-weight:600; cursor:pointer; background:transparent; color:var(--textSecondary); }
+  .segBtn.active { background:var(--card); color:var(--textPrimary); box-shadow:0 1px 2px var(--shadow); }
+
+  /* タブストリップ */
+  #tabStrip { flex:0 0 auto; display:flex; align-items:flex-end; gap:3px; padding:0 14px; background:var(--tabStripBg); border-bottom:1px solid var(--divider); overflow-x:auto; }
+  .tabBtn { position:relative; display:flex; align-items:center; gap:8px; height:38px; padding:0 14px; border:0; border-radius:7px 7px 0 0; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; background:transparent; color:var(--textSecondary); }
+  .tabBtn.active { background:var(--card); color:var(--textPrimary); box-shadow: inset 0 -2px 0 var(--accent); }
+  .tabBtn:hover { background:var(--rowHover); }
+  .tabBtn .count { font-size:11px; color:var(--textMuted); }
+  #btnAddTab { width:30px; height:30px; margin:0 0 4px 4px; border:0; border-radius:6px; background:transparent; color:var(--textSecondary); cursor:pointer; }
+  #btnAddTab:hover { background:var(--rowHover); }
+
+  /* コンテンツ */
+  #content { flex:1 1 auto; overflow-y:auto; background:var(--content); padding:18px 22px 30px; }
+  .catBlock { margin-bottom:22px; }
+  .catHeader { display:flex; align-items:center; gap:10px; margin-bottom:11px; }
+  .catHeader .name { font-size:12px; font-weight:700; color:var(--textSecondary); white-space:nowrap; }
+  .catHeader .cnt { font-size:11px; color:var(--textMuted); }
+  .catHeader .line { flex:1 1 auto; height:1px; background:var(--divider); }
+  .catMenuBtn { flex:0 0 auto; width:22px; height:22px; border:0; border-radius:5px; background:transparent; color:var(--textMuted); cursor:pointer; font-size:14px; line-height:1; }
+  .catMenuBtn:hover { background:var(--rowHover); color:var(--textPrimary); }
+
+  .tileGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:12px; }
+  .tile { position:relative; display:flex; flex-direction:column; align-items:center; gap:9px; padding:16px 10px 12px; border:1px solid var(--cardBorder); border-radius:9px; background:var(--card); color:var(--textPrimary); cursor:pointer; box-shadow:0 1px 2px var(--shadow); }
+  .tile:hover { background:var(--cardHover); }
+  .tile.dragOverBefore { box-shadow: -3px 0 0 var(--accent), 0 1px 2px var(--shadow); }
+  .tile.dragOverAfter { box-shadow: 3px 0 0 var(--accent), 0 1px 2px var(--shadow); }
+  .tile.dragOverSwap { outline:2px solid var(--accent); outline-offset:-2px; background:var(--accentSoft); }
+  .tile.addSlotTile { display:flex; align-items:center; justify-content:center; padding:16px 10px; color:var(--textMuted); }
+  .tile.addSlotTile:hover { color:var(--accent); border-color:var(--accentBorder,var(--accent)); background:var(--dropBg); }
+  .tile .badge { position:absolute; top:6px; right:6px; font-size:9px; font-weight:800; padding:1.5px 5px; border-radius:4px; }
+  .tile .name { font-size:12.5px; font-weight:600; text-align:center; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .tile.emptySlot { border-style:dashed; background:var(--dropBg); box-shadow:none; cursor:default; opacity:.5; }
+
+  .listRows { display:flex; flex-direction:column; border-radius:8px; overflow:hidden; border:1px solid var(--cardBorder); background:var(--card); }
+  .listRow { display:flex; align-items:center; gap:12px; padding:8px 14px; border:0; border-bottom:1px solid var(--divider); background:transparent; color:var(--textPrimary); cursor:pointer; text-align:left; width:100%; }
+  .listRow:last-child { border-bottom:0; }
+  .listRow:hover { background:var(--rowHover); }
+  .listRow.dragOverBefore { box-shadow: inset 0 2px 0 var(--accent); }
+  .listRow.dragOverAfter { box-shadow: inset 0 -2px 0 var(--accent); }
+  .listRow .name { font-size:13px; font-weight:600; flex:0 0 230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .listRow .path { font-size:11.5px; color:var(--textMuted); flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-monospace,Consolas,monospace; }
+  .listRow.emptySlot { opacity:.5; border-style:dashed; cursor:default; }
+  .badge2 { font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px; flex:0 0 auto; }
+
+  .iconWrap { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .iconWrap.sm { width:26px; height:26px; border-radius:7px; }
+  .iconWrap img { width:60%; height:60%; object-fit:contain; }
+
+  .searchMeta { font-size:12px; color:var(--textSecondary); margin-bottom:12px; }
+  .searchMeta b { color:var(--accent); }
+
+  /* コンテキストメニュー */
+  #ctxOverlay { position:fixed; inset:0; z-index:50; display:none; }
+  #ctxMenu { position:fixed; min-width:200px; padding:5px; border-radius:8px; background:var(--menuBg); border:1px solid var(--menuBorder); box-shadow:0 12px 32px var(--shadow); }
+  #ctxMenu .ctxTitle { padding:6px 10px 8px; font-size:11px; color:var(--textMuted); border-bottom:1px solid var(--divider); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctxItem { display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border:0; border-radius:5px; background:transparent; color:var(--textPrimary); font-size:13px; cursor:pointer; text-align:left; }
+  .ctxItem:hover { background:var(--accentSoft); }
+  .ctxItem.danger { color:var(--danger); }
+  .ctxItem.danger:hover { background:var(--dangerSoft); }
+
+  /* モーダル */
+  #modalOverlay { position:fixed; inset:0; z-index:60; background:var(--overlay); display:none; align-items:center; justify-content:center; }
+  #modal { width:560px; max-width:92vw; max-height:88vh; overflow-y:auto; border-radius:11px; background:var(--winBg); border:1px solid var(--menuBorder); box-shadow:0 26px 64px rgba(0,0,0,.45); }
+  .modalHead { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; }
+  .modalHead .title { font-size:15px; font-weight:700; }
+  .modalHead button { width:26px; height:26px; border:0; border-radius:5px; background:transparent; color:var(--textMuted); cursor:pointer; }
+  .modalHead button:hover { background:var(--rowHover); }
+  .modalBody { padding:0 20px 4px; }
+  .typeTabs { display:flex; gap:4px; padding:4px; border-radius:8px; background:var(--segBg); margin-bottom:15px; }
+  .typeTabs button { flex:1 1 0; height:34px; border:0; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer; background:transparent; color:var(--textSecondary); }
+  .typeTabs button.active { background:var(--card); color:var(--accent); box-shadow:0 1px 2px var(--shadow); }
+  .field label { display:block; font-size:11.5px; font-weight:600; color:var(--textSecondary); margin:0 0 5px; }
+  .field input, .field select { width:100%; height:36px; padding:0 11px; border-radius:6px; border:1px solid var(--inputBorder); background:var(--inputBg); color:var(--textPrimary); font-size:13px; outline:none; margin-bottom:13px; }
+  .field input:focus { border-color:var(--accent); }
+  .pathRow { display:flex; gap:8px; margin-bottom:8px; }
+  .pathRow input { flex:1 1 auto; margin-bottom:0; font-family:ui-monospace,Consolas,monospace; }
+  .browseRow { display:flex; gap:8px; margin-bottom:14px; }
+  .browseBtn { flex:1 1 0; height:36px; padding:0 10px; border-radius:6px; border:1px solid var(--inputBorder); background:var(--card); color:var(--textPrimary); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .browseBtn:hover { background:var(--cardHover); }
+  .modalFoot { display:flex; justify-content:flex-end; gap:8px; padding:14px 20px; margin-top:6px; border-top:1px solid var(--divider); background:var(--commandBar); }
+  .btnGhost { height:34px; padding:0 16px; border-radius:6px; border:1px solid var(--inputBorder); background:var(--card); color:var(--textPrimary); font-size:13px; font-weight:600; cursor:pointer; }
+  .btnGhost:hover { background:var(--cardHover); }
+  .btnPrimary { height:34px; padding:0 18px; border-radius:6px; border:0; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+  .btnPrimary:hover { background:var(--accentHover); }
+  .errMsg { font-size:12px; color:var(--danger); margin:-6px 0 10px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="commandBar">
+    <button id="btnAdd">＋ 追加</button>
+    <div class="searchWrap">
+      <svg class="searchIcon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.3"/><path d="M10.4 10.4l3.1 3.1"/></svg>
+      <input id="searchInput" placeholder="すべてのタブから検索（名前・パス・URL）">
+      <button id="btnClearSearch">✕</button>
+    </div>
+    <button id="btnTheme" title="ライト/ダーク切替">🌓</button>
+    <div id="viewToggle">
+      <button id="btnTile" class="segBtn">▦ タイル</button>
+      <button id="btnList" class="segBtn">☰ リスト</button>
+    </div>
+  </div>
+
+  <div id="tabStrip"></div>
+  <div id="content"></div>
+</div>
+
+<div id="ctxOverlay">
+  <div id="ctxMenu"></div>
+</div>
+
+<div id="modalOverlay">
+  <div id="modal"></div>
+</div>
+
+<script>
+/* =========================================================
+   リンク集ランチャー フロントエンド (Vanilla JS)
+   Go側とは window.go.main.App.* / window.runtime.* で通信する。
+   ========================================================= */
+
+// ---- グリフ(種別ごとのフォールバックSVGアイコン) ----
+const GLYPHS = {
+  url:    '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 2.4 3 14.6 0 17M12 3.5c-3 2.4-3 14.6 0 17"/>',
+  file:   '<path d="M14 3.5H7A2 2 0 0 0 5 5.5v13A2 2 0 0 0 7 20.5h10a2 2 0 0 0 2-2V8.5z"/><path d="M14 3.5v5h5"/><path d="M9 13h6M9 16.5h6"/>',
+  folder: '<path d="M3 7.5a2 2 0 0 1 2-2h3.8l2 2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  exe:    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/>'
+};
+const TYPE_COLOR = { url:'#2F6FB3', file:'#5b5d63', folder:'#C98A0E', exe:'#B92B2B' };
+const TYPE_LABEL = { url:'URL', file:'ファイル', folder:'フォルダ', exe:'EXE' };
+
+function glyphSvg(type, size){
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[type]||GLYPHS.url}</svg>`;
+}
+function iconWrapHtml(item, size){
+  const cls = size <= 30 ? 'iconWrap sm' : 'iconWrap';
+  const bg = TYPE_COLOR[item.type] || '#888';
+  if (item.icon && item.icon.kind !== 'none' && item.icon.value) {
+    if (item.icon.kind === 'emoji') {
+      return `<span class="${cls}" style="background:${bg};font-size:${Math.round(size*0.55)}px;">${item.icon.value}</span>`;
+    }
+    return `<span class="${cls}" style="background:${bg};"><img src="${item.icon.value}"></span>`;
+  }
+  return `<span class="${cls}" style="background:${bg};">${glyphSvg(item.type, Math.round(size*0.5))}</span>`;
+}
+
+// ---- ID生成 ----
+let idSeq = 0;
+function newId(prefix){ return prefix + '_' + Date.now().toString(36) + '_' + (idSeq++); }
+
+// ---- 状態 ----
+const state = {
+  theme: 'light',
+  data: { tabs: [] },
+  settings: { lastTab:null, theme:'system', viewModeByTab:{} },
+  activeTabId: null,
+  query: '',
+  drag: null,          // 内部並び替え中のドラッグ元 {tabId,catId,index}
+};
+
+function findTab(id){ return state.data.tabs.find(t=>t.id===id); }
+function activeTab(){ return findTab(state.activeTabId); }
+function currentView(){
+  return (state.settings.viewModeByTab && state.settings.viewModeByTab[state.activeTabId]) || 'tile';
+}
+
+function defaultData(){
+  return {
+    tabs: [
+      { id:newId('tab'), name:'ホーム', categories: [] }
+    ]
+  };
+}
+
+// ---- 永続化（デバウンスして呼びすぎを防ぐ） ----
+function debounce(fn, ms){
+  let t=null;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+}
+const persistData = debounce(()=>{
+  window.go.main.App.SaveData(JSON.stringify(state.data)).catch(e=>console.error('SaveData失敗', e));
+}, 300);
+const persistSettings = debounce(()=>{
+  window.go.main.App.SaveSettings(JSON.stringify(state.settings)).catch(e=>console.error('SaveSettings失敗', e));
+}, 300);
+
+// ---- 初期化 ----
+async function init(){
+  let dataStr = '', settingsStr = '', sysTheme = 'light';
+  try { dataStr = await window.go.main.App.LoadData(); } catch(e){ console.error(e); }
+  try { settingsStr = await window.go.main.App.LoadSettings(); } catch(e){ console.error(e); }
+  try { sysTheme = await window.go.main.App.GetSystemTheme(); } catch(e){ console.warn('テーマ自動検知失敗', e); }
+
+  state.data = dataStr ? JSON.parse(dataStr) : defaultData();
+  const s = settingsStr ? JSON.parse(settingsStr) : {};
+  state.settings = Object.assign({ lastTab:null, theme:'system', viewModeByTab:{} }, s);
+  // Go側でSettings{}のゼロ値がそのまま保存されると null が来ることがあるため防御する
+  if (!state.settings.viewModeByTab || typeof state.settings.viewModeByTab !== 'object') {
+    state.settings.viewModeByTab = {};
+  }
+  if (!state.settings.theme) state.settings.theme = 'system';
+
+  state.theme = state.settings.theme === 'system' ? sysTheme : state.settings.theme;
+  applyTheme(state.theme);
+
+  state.activeTabId = (state.settings.lastTab && findTab(state.settings.lastTab))
+    ? state.settings.lastTab
+    : (state.data.tabs[0] && state.data.tabs[0].id);
+
+  bindStaticEvents();
+  render();
+
+  // Chromium(WebView2)は既定でドロップされたファイルを「開く/ダウンロードする」動作をする。
+  // dragover/dropの両方でpreventDefault()しないとこの既定動作が優先されてしまい、
+  // Wails側のネイティブOnFileDropが登録されていても意図通り動かないことがある。
+  window.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  window.addEventListener('drop', (e)=>{ e.preventDefault(); });
+
+  if (window.runtime && window.runtime.EventsOn) {
+    window.runtime.EventsOn('files-dropped', onFilesDropped);
+    // Go側でruntime.OnFileDropを登録しているだけでは、Windows環境で
+    // ネイティブドロップ処理が有効化されないケースが報告されているため、
+    // JS側でも空コールバックでOnFileDropを呼んでおく（実際の処理はGo側→
+    // files-droppedイベント経由で行う。ここでは有効化トリガーとしてのみ使用）。
+    if (window.runtime.OnFileDrop) {
+      window.runtime.OnFileDrop(()=>{}, false);
+    }
+  }
+  window.addEventListener('resize', debounce(()=>{
+    window.go.main.App.SaveWindowSize().catch(e=>console.error('SaveWindowSize失敗', e));
+  }, 500));
+}
+window.addEventListener('DOMContentLoaded', init);
+
+function applyTheme(theme){
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+}
+
+// ---- 静的要素のイベント登録（一度だけ） ----
+function bindStaticEvents(){
+  document.getElementById('btnAdd').addEventListener('click', ()=>openAddModal());
+  document.getElementById('btnTheme').addEventListener('click', ()=>{
+    const next = state.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    state.settings.theme = next; // 手動切替した場合はOS追従をやめてこの値を固定する
+    persistSettings();
+  });
+  document.getElementById('btnTile').addEventListener('click', ()=>setView('tile'));
+  document.getElementById('btnList').addEventListener('click', ()=>setView('list'));
+
+  const search = document.getElementById('searchInput');
+  search.addEventListener('input', ()=>{
+    state.query = search.value;
+    document.getElementById('btnClearSearch').style.display = state.query ? 'flex' : 'none';
+    renderContent();
+  });
+  document.getElementById('btnClearSearch').addEventListener('click', ()=>{
+    state.query = '';
+    search.value = '';
+    document.getElementById('btnClearSearch').style.display = 'none';
+    renderContent();
+  });
+
+  document.getElementById('ctxOverlay').addEventListener('click', closeContextMenu);
+  document.getElementById('ctxOverlay').addEventListener('contextmenu', (e)=>{ e.preventDefault(); closeContextMenu(); });
+  // ctxMenu内のクリックは背景(ctxOverlay)まで伝播させない。
+  // 個々のボタンは自前でcloseContextMenu()を呼ぶので問題なく、
+  // 入力欄やグリッドの隙間など「何もしない」要素をクリックしても
+  // メニューが誤って閉じないようにするための対処。
+  document.getElementById('ctxMenu').addEventListener('click', (e)=>e.stopPropagation());
+
+  // モーダルは「背景でmousedownし、かつ背景でclick(=mouseup)した場合」のみ閉じる。
+  // モーダル内(入力欄など)でテキスト選択のためにドラッグし、マウスがモーダル外に
+  // はみ出して離された場合でもclickイベントは背景要素で発火してしまうため、
+  // mousedown側のtargetも見て「本当に背景をクリックしたか」を判定する。
+  let modalMouseDownOnBackdrop = false;
+  const modalOverlay = document.getElementById('modalOverlay');
+  modalOverlay.addEventListener('mousedown', (e)=>{
+    modalMouseDownOnBackdrop = (e.target.id === 'modalOverlay');
+  });
+  modalOverlay.addEventListener('click', (e)=>{
+    if (e.target.id === 'modalOverlay' && modalMouseDownOnBackdrop) closeModal();
+  });
+}
+
+function setView(v){
+  if (!state.settings.viewModeByTab) state.settings.viewModeByTab = {};
+  state.settings.viewModeByTab[state.activeTabId] = v;
+  persistSettings();
+  renderContent();
+  renderViewToggle();
+}
+
+// window.prompt()の代替。WebView2埋め込み環境ではネイティブprompt()が機能しない
+// （UIが出ず即座にnullが返る）ことがあるため、既存の#modalOverlayを流用した
+// 自作の入力モーダルで代替する。
+function showTextPrompt(title, defaultValue){
+  return new Promise((resolve)=>{
+    const overlay = document.getElementById('modalOverlay');
+    const modal = document.getElementById('modal');
+    modal.innerHTML = `
+      <div class="modalHead"><span class="title">${escapeHtml(title)}</span><button id="tpClose">✕</button></div>
+      <div class="modalBody"><div class="field"><input id="tpInput" value="${escapeAttr(defaultValue || '')}"></div></div>
+      <div class="modalFoot">
+        <button class="btnGhost" id="tpCancel">キャンセル</button>
+        <button class="btnPrimary" id="tpOk">OK</button>
+      </div>
+    `;
+    const input = modal.querySelector('#tpInput');
+    let done = false;
+    const finish = (val)=>{
+      if (done) return;
+      done = true;
+      overlay.style.display = 'none';
+      resolve(val);
+    };
+    modal.querySelector('#tpClose').onclick = ()=>finish(null);
+    modal.querySelector('#tpCancel').onclick = ()=>finish(null);
+    modal.querySelector('#tpOk').onclick = ()=>finish(input.value.trim());
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') finish(input.value.trim());
+      if (e.key === 'Escape') finish(null);
+    });
+    overlay.style.display = 'flex';
+    setTimeout(()=>{ input.focus(); input.select(); }, 0);
+  });
+}
+
+// window.confirm()の代替（理由は showTextPrompt と同様）。
+function showConfirm(message, okLabel){
+  return new Promise((resolve)=>{
+    const overlay = document.getElementById('modalOverlay');
+    const modal = document.getElementById('modal');
+    modal.innerHTML = `
+      <div class="modalHead"><span class="title">確認</span><button id="cfClose">✕</button></div>
+      <div class="modalBody"><p style="margin:0 0 8px;font-size:13px;color:var(--textPrimary);line-height:1.6;">${escapeHtml(message)}</p></div>
+      <div class="modalFoot">
+        <button class="btnGhost" id="cfCancel">キャンセル</button>
+        <button class="btnPrimary" id="cfOk" style="background:var(--danger);">${escapeHtml(okLabel || '削除する')}</button>
+      </div>
+    `;
+    let done = false;
+    const finish = (val)=>{
+      if (done) return;
+      done = true;
+      overlay.style.display = 'none';
+      resolve(val);
+    };
+    modal.querySelector('#cfClose').onclick = ()=>finish(false);
+    modal.querySelector('#cfCancel').onclick = ()=>finish(false);
+    modal.querySelector('#cfOk').onclick = ()=>finish(true);
+    overlay.style.display = 'flex';
+  });
+}
+
+// =========================================================
+// 描画
+// =========================================================
+function render(){
+  renderTabs();
+  renderViewToggle();
+  renderContent();
+}
+
+function renderViewToggle(){
+  const v = currentView();
+  document.getElementById('btnTile').classList.toggle('active', v === 'tile');
+  document.getElementById('btnList').classList.toggle('active', v === 'list');
+}
+
+function renderTabs(){
+  const strip = document.getElementById('tabStrip');
+  strip.innerHTML = '';
+  state.data.tabs.forEach(tab=>{
+    const btn = document.createElement('button');
+    btn.className = 'tabBtn' + (tab.id === state.activeTabId && !state.query ? ' active' : '');
+    const count = tab.categories.reduce((s,c)=>s + c.items.filter(Boolean).length, 0);
+    btn.innerHTML = `${escapeHtml(tab.name)} <span class="count">${count}</span>`;
+    btn.dataset.tabId = tab.id;
+    btn.addEventListener('click', ()=>{
+      state.activeTabId = tab.id;
+      state.settings.lastTab = tab.id;
+      persistSettings();
+      state.query = '';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('btnClearSearch').style.display = 'none';
+      render();
+    });
+    btn.addEventListener('contextmenu', (e)=>{
+      e.preventDefault();
+      openTabContextMenu(e, tab);
+    });
+    strip.appendChild(btn);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.id = 'btnAddTab';
+  addBtn.textContent = '＋';
+  addBtn.title = 'タブを追加';
+  addBtn.addEventListener('click', async ()=>{
+    const name = await showTextPrompt('新しいタブ名', '');
+    if (!name) return;
+    const tab = { id:newId('tab'), name, categories:[] };
+    state.data.tabs.push(tab);
+    state.activeTabId = tab.id;
+    persistData();
+    render();
+  });
+  strip.appendChild(addBtn);
+}
+
+function renderContent(){
+  const el = document.getElementById('content');
+  el.innerHTML = '';
+
+  const q = state.query.trim().toLowerCase();
+  if (q) {
+    renderSearchResults(el, q);
+    return;
+  }
+
+  const tab = activeTab();
+  if (!tab) { el.innerHTML = '<p style="color:var(--textMuted);">タブがありません</p>'; return; }
+  const view = currentView();
+
+  tab.categories.forEach(cat=>{
+    // リスト表示は空きスロットを「表示しない」だけで、データ(null)自体は消さない。
+    // タイル表示に戻せば元の空白配置がそのまま復元される。
+
+    const block = document.createElement('div');
+    block.className = 'catBlock';
+    const header = document.createElement('div');
+    header.className = 'catHeader';
+    header.innerHTML = `
+      <span class="name">${cat.name ? escapeHtml(cat.name) : '（未分類）'}</span>
+      <span class="cnt">${cat.items.filter(Boolean).length}</span>
+      <span class="line"></span>
+      <button class="catMenuBtn" title="カテゴリの名前変更・追加・削除">⋯</button>
+    `;
+    header.querySelector('.catMenuBtn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openCategoryContextMenu(e, tab, cat);
+    });
+    block.appendChild(header);
+
+    const body = document.createElement('div');
+    body.dataset.catBody = '1';
+    body.dataset.tabId = tab.id;
+    body.dataset.catId = cat.id;
+    body.dataset.view = view;
+    body.className = view === 'tile' ? 'tileGrid' : 'listRows';
+
+    cat.items.forEach((item, idx)=>{
+      if (view === 'list' && !item) return; // リストでは空き枠を単純にスキップして詰めて見せる
+      body.appendChild(view === 'tile' ? renderTile(item, tab.id, cat.id, idx) : renderListRow(item, tab.id, cat.id, idx));
+    });
+
+    if (view === 'tile') {
+      // 末尾の「＋空き枠を追加」タイル。クリックで空きスロットを1個追加でき、
+      // ドラッグのドロップ先（カテゴリが空でも受け取れる）も兼ねる。
+      const addSlot = document.createElement('button');
+      addSlot.className = 'tile emptySlot addSlotTile';
+      addSlot.title = 'クリックで空き枠を追加（ドラッグ＆ドロップの受け皿にもなります）';
+      addSlot.innerHTML = '<span style="font-size:20px;line-height:1;">＋</span>';
+      addSlot.addEventListener('click', ()=>{
+        cat.items.push(null);
+        persistData();
+        renderContent();
+      });
+      const tailIndex = cat.items.length;
+      addSlot.addEventListener('dragover', (e)=>{
+        if (!state.drag) return;
+        e.preventDefault();
+        addSlot.classList.add('dragOverAfter');
+      });
+      addSlot.addEventListener('dragleave', ()=>addSlot.classList.remove('dragOverAfter'));
+      addSlot.addEventListener('drop', (e)=>{
+        if (!state.drag) return;
+        e.preventDefault();
+        moveItem(state.drag.tabId, state.drag.catId, state.drag.index, tab.id, cat.id, tailIndex, view);
+        state.drag = null;
+        clearDragOverStyles();
+      });
+      body.appendChild(addSlot);
+    } else {
+      // リスト表示は末尾ドロップ用の帯のみ（空き枠の概念自体が無いため追加ボタンは出さない）
+      const tail = document.createElement('div');
+      tail.dataset.catTail = '1';
+      tail.style.minHeight = '28px';
+      tail.addEventListener('dragover', (e)=>{ if (state.drag) e.preventDefault(); });
+      tail.addEventListener('drop', (e)=>{
+        if (!state.drag) return;
+        e.preventDefault();
+        moveItem(state.drag.tabId, state.drag.catId, state.drag.index, tab.id, cat.id, cat.items.length, view);
+        state.drag = null;
+        clearDragOverStyles();
+      });
+      body.appendChild(tail);
+    }
+
+    block.appendChild(body);
+    el.appendChild(block);
+  });
+
+  // カテゴリを追加するための帯（常時表示）
+  const addCatRow = document.createElement('button');
+  addCatRow.textContent = '＋ カテゴリを追加';
+  addCatRow.style.cssText = 'display:block;width:100%;padding:8px;margin-top:4px;border:1px dashed var(--inputBorder);border-radius:8px;background:transparent;color:var(--textMuted);font-size:12px;cursor:pointer;';
+  addCatRow.addEventListener('click', async ()=>{
+    const name = await showTextPrompt('カテゴリ名（空欄可＝未分類）', '');
+    if (name === null) return;
+    tab.categories.push({ id:newId('cat'), name, items:[] });
+    persistData();
+    renderContent();
+  });
+  el.appendChild(addCatRow);
+}
+
+function renderSearchResults(el, q){
+  const results = [];
+  state.data.tabs.forEach(tab=>{
+    tab.categories.forEach(cat=>{
+      cat.items.forEach(item=>{
+        if (!item) return;
+        const hay = (item.name + ' ' + item.path).toLowerCase();
+        if (hay.includes(q)) results.push({ item, tab, cat });
+      });
+    });
+  });
+
+  const meta = document.createElement('div');
+  meta.className = 'searchMeta';
+  meta.innerHTML = `「<b>${escapeHtml(state.query)}</b>」の検索結果 ・ ${results.length} 件`;
+  el.appendChild(meta);
+
+  const rows = document.createElement('div');
+  rows.className = 'listRows';
+  results.forEach(({item, tab, cat})=>{
+    const row = document.createElement('button');
+    row.className = 'listRow';
+    const badge = badgeHtml(item.type);
+    row.innerHTML = `
+      ${iconWrapHtml(item, 26)}
+      <span class="name">${escapeHtml(item.name)}</span>
+      <span class="path">${escapeHtml(item.path)}</span>
+      <span style="font-size:11px;color:var(--textSecondary);flex:0 0 auto;">${escapeHtml(tab.name)}${cat.name ? ' › ' + escapeHtml(cat.name) : ''}</span>
+      ${badge}
+    `;
+    row.addEventListener('click', ()=>{
+      state.activeTabId = tab.id;
+      state.query = '';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('btnClearSearch').style.display = 'none';
+      render();
+    });
+    row.addEventListener('contextmenu', (e)=>{
+      e.preventDefault();
+      openItemContextMenu(e, tab.id, cat.id, cat.items.indexOf(item));
+    });
+    rows.appendChild(row);
+  });
+  el.appendChild(rows);
+}
+
+function badgeHtml(type){
+  return `<span class="badge2" style="background:var(--badge${cap(type)}Bg);color:var(--badge${cap(type)}Fg);">${TYPE_LABEL[type]}</span>`;
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function renderTile(item, tabId, catId, idx){
+  const el = document.createElement('button');
+  el.dataset.itemIndex = idx;
+  if (!item) {
+    el.className = 'tile emptySlot';
+    el.title = '右クリックでここに項目を追加';
+    el.innerHTML = '';
+    el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openEmptySlotContextMenu(e, tabId, catId, idx); });
+    attachDropTargetHandlers(el, tabId, catId, idx, true);
+    return el;
+  }
+  el.className = 'tile';
+  el.draggable = true;
+  el.innerHTML = `
+    <span class="badge" style="background:var(--badge${cap(item.type)}Bg);color:var(--badge${cap(item.type)}Fg);">${TYPE_LABEL[item.type]}</span>
+    ${iconWrapHtml(item, 46)}
+    <span class="name">${escapeHtml(item.name)}</span>
+  `;
+  el.addEventListener('click', ()=>handleOpen(item));
+  el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openItemContextMenu(e, tabId, catId, idx); });
+  attachDragHandlers(el, tabId, catId, idx, true);
+  return el;
+}
+
+function openEmptySlotContextMenu(e, tabId, catId, idx){
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `
+    <div class="ctxTitle">空き枠</div>
+    <button class="ctxItem" data-act="fill">＋ ここに項目を追加</button>
+    <button class="ctxItem danger" data-act="remove">🗑 この空き枠を削除</button>
+  `;
+  menu.querySelector('[data-act="fill"]').onclick = ()=>{ closeContextMenu(); openAddModal({ tabId, catId, idx }); };
+  menu.querySelector('[data-act="remove"]').onclick = ()=>{
+    closeContextMenu();
+    const tab = findTab(tabId);
+    const cat = tab.categories.find(c=>c.id===catId);
+    cat.items.splice(idx, 1);
+    persistData();
+    renderContent();
+  };
+  positionAndShowMenu(e);
+}
+
+function renderListRow(item, tabId, catId, idx){
+  const el = document.createElement(item ? 'button' : 'div');
+  el.dataset.itemIndex = idx;
+  if (!item) {
+    el.className = 'listRow emptySlot';
+    el.innerHTML = '<span style="font-size:11.5px;color:var(--textMuted);">（空きスロット）</span>';
+    attachDropTargetHandlers(el, tabId, catId, idx, false);
+    return el;
+  }
+  el.className = 'listRow';
+  el.draggable = true;
+  el.innerHTML = `
+    ${iconWrapHtml(item, 26)}
+    <span class="name">${escapeHtml(item.name)}</span>
+    <span class="path">${escapeHtml(item.path)}</span>
+    ${badgeHtml(item.type)}
+  `;
+  el.addEventListener('click', ()=>handleOpen(item));
+  el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openItemContextMenu(e, tabId, catId, idx); });
+  attachDragHandlers(el, tabId, catId, idx, false);
+  return el;
+}
+
+// =========================================================
+// アプリ内ドラッグ&ドロップ（並び替え）
+// HTML5 Drag and Drop APIを使用。OSファイルの外部ドロップ(onFilesDropped)とは別経路。
+// =========================================================
+function attachDragHandlers(el, tabId, catId, idx, isTile){
+  el.addEventListener('dragstart', (e)=>{
+    state.drag = { tabId, catId, index: idx };
+    e.dataTransfer.setData('text/plain', 'internal-reorder'); // Firefox等で必須
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', ()=>{ state.drag = null; clearDragOverStyles(); });
+  attachDropTargetHandlers(el, tabId, catId, idx, isTile);
+}
+
+function attachDropTargetHandlers(el, tabId, catId, idx, isTile){
+  el.addEventListener('dragover', (e)=>{
+    if (!state.drag) return; // 外部ファイルのドラッグ中はネイティブOnFileDropに任せる
+    e.preventDefault();
+    clearDragOverStyles();
+    if (isTile) {
+      // タイル表示はスワップ方式なので前後判定はせず、タイル全体をハイライトする
+      el.classList.add('dragOverSwap');
+    } else {
+      const rect = el.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height/2;
+      el.classList.add(before ? 'dragOverBefore' : 'dragOverAfter');
+    }
+  });
+  el.addEventListener('dragleave', ()=>{ el.classList.remove('dragOverBefore','dragOverAfter','dragOverSwap'); });
+  el.addEventListener('drop', (e)=>{
+    if (!state.drag) return;
+    e.preventDefault();
+    if (isTile) {
+      // このタイルの位置とまるごと入れ替える（他のスロットはずらさない）
+      moveItem(state.drag.tabId, state.drag.catId, state.drag.index, tabId, catId, idx, 'tile');
+    } else {
+      const rect = el.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height/2;
+      const targetIndex = before ? idx : idx + 1;
+      moveItem(state.drag.tabId, state.drag.catId, state.drag.index, tabId, catId, targetIndex, 'list');
+    }
+    state.drag = null;
+    clearDragOverStyles();
+  });
+}
+function clearDragOverStyles(){
+  document.querySelectorAll('.dragOverBefore,.dragOverAfter,.dragOverSwap').forEach(e=>e.classList.remove('dragOverBefore','dragOverAfter','dragOverSwap'));
+}
+
+// srcの項目をdstの位置へ移動する。
+// viewMode==='tile' の場合はスワップ方式：dst位置の中身とsrc位置の中身をまるごと入れ替えるだけで、
+// 他のスロットの位置はずらさない（Claunch的な自由配置を維持するため）。
+// viewMode==='list' の場合は従来通りの詰めた並び替え（空きスロットは存在しない前提）。
+function moveItem(srcTabId, srcCatId, srcIndex, dstTabId, dstCatId, dstIndex, viewMode){
+  const srcTab = findTab(srcTabId); if (!srcTab) return;
+  const srcCat = srcTab.categories.find(c=>c.id===srcCatId); if (!srcCat) return;
+  const item = srcCat.items[srcIndex];
+  if (!item) return; // 空きスロット自体は移動しない
+
+  const dstTab = findTab(dstTabId); if (!dstTab) return;
+  const dstCat = dstTab.categories.find(c=>c.id===dstCatId); if (!dstCat) return;
+
+  if (viewMode === 'tile') {
+    if (srcCat === dstCat && srcIndex === dstIndex) return;
+    while (dstCat.items.length <= dstIndex) dstCat.items.push(null);
+    const dstItem = dstCat.items[dstIndex];
+    dstCat.items[dstIndex] = item;
+    srcCat.items[srcIndex] = dstItem || null;
+  } else {
+    srcCat.items.splice(srcIndex, 1);
+    let insertAt = dstIndex;
+    if (srcCat === dstCat && srcIndex < dstIndex) insertAt -= 1;
+    dstCat.items.splice(insertAt, 0, item);
+  }
+
+  persistData();
+  renderContent();
+  renderTabs();
+}
+
+// =========================================================
+// 外部ファイルのドラッグ&ドロップ（新規追加）
+// Go側 OnFileDrop -> 'files-dropped' イベントで x,y と解決済みパス一覧を受け取る。
+// 【注意】ドラッグ中のプレビュー表示は未実装（Go側はドロップ確定時のみ通知するため）。
+// =========================================================
+function onFilesDropped(payload){
+  if (!payload || !payload.items || payload.items.length === 0) return;
+  const target = resolveDropTarget(payload.x, payload.y);
+  if (!target) return;
+
+  const tab = findTab(target.tabId);
+  if (!tab) return;
+  if (state.activeTabId !== tab.id) {
+    state.activeTabId = tab.id;
+    state.settings.lastTab = tab.id;
+    persistSettings();
+  }
+  let cat = tab.categories.find(c=>c.id===target.catId);
+  if (!cat) { cat = tab.categories[0]; }
+  if (!cat) { cat = { id:newId('cat'), name:'', items:[] }; tab.categories.push(cat); }
+
+  const newItems = payload.items.map(it=>({
+    id: newId('item'),
+    name: it.name,
+    type: it.type, // "file" | "folder" | "exe"
+    path: it.path,
+    icon: { kind:'none', value:null }
+  }));
+  cat.items.splice(target.index, 0, ...newItems);
+
+  persistData();
+  render();
+
+  // アイコン自動抽出はバックグラウンドで行い、失敗しても無視する（種別グリフのままでよい）
+  newItems.forEach(item=>{
+    window.go.main.App.ExtractIcon(item.path).then(dataUri=>{
+      if (!dataUri) return;
+      item.icon = { kind:'auto', value: dataUri };
+      persistData();
+      renderContent();
+    }).catch(()=>{ /* 抽出失敗時は種別グリフのままにする */ });
+  });
+}
+
+function resolveDropTarget(x, y){
+  const el = document.elementFromPoint(x, y);
+  if (!el) return fallbackDropTarget();
+
+  const catBody = el.closest('[data-cat-body]');
+  if (catBody) {
+    const tabId = catBody.dataset.tabId;
+    const catId = catBody.dataset.catId;
+    const isTile = catBody.dataset.view === 'tile';
+    const itemEl = el.closest('[data-item-index]');
+    let index;
+    if (itemEl && catBody.contains(itemEl)) {
+      const rect = itemEl.getBoundingClientRect();
+      const before = isTile ? (x < rect.left + rect.width/2) : (y < rect.top + rect.height/2);
+      const idx = parseInt(itemEl.dataset.itemIndex, 10);
+      index = before ? idx : idx + 1;
+    } else {
+      const tab = findTab(tabId);
+      const cat = tab && tab.categories.find(c=>c.id===catId);
+      index = cat ? cat.items.length : 0;
+    }
+    return { tabId, catId, index };
+  }
+
+  const tabBtn = el.closest('[data-tab-id]');
+  if (tabBtn) {
+    const tabId = tabBtn.dataset.tabId;
+    const tab = findTab(tabId);
+    if (!tab) return null;
+    let cat = tab.categories[0];
+    if (!cat) { cat = { id:newId('cat'), name:'', items:[] }; tab.categories.push(cat); }
+    return { tabId, catId: cat.id, index: cat.items.length };
+  }
+
+  return fallbackDropTarget();
+}
+function fallbackDropTarget(){
+  const tab = activeTab();
+  if (!tab) return null;
+  const cat = tab.categories[0];
+  if (!cat) return null;
+  return { tabId: tab.id, catId: cat.id, index: cat.items.length };
+}
+
+// =========================================================
+// アイテムを開く
+// =========================================================
+function handleOpen(item){
+  window.go.main.App.OpenPath(item.path).catch(e=>{
+    showToast('開けませんでした: ' + e);
+  });
+}
+
+// alert()の代替の簡易トースト通知。
+function showToast(message){
+  const el = document.createElement('div');
+  el.textContent = message;
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--menuBg);color:var(--textPrimary);border:1px solid var(--menuBorder);padding:10px 16px;border-radius:8px;box-shadow:0 8px 24px var(--shadow);font-size:13px;z-index:200;max-width:80vw;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(()=>{
+    el.style.transition = 'opacity .3s';
+    el.style.opacity = '0';
+    setTimeout(()=>el.remove(), 300);
+  }, 3200);
+}
+
+// =========================================================
+// コンテキストメニュー
+// =========================================================
+function openItemContextMenu(e, tabId, catId, idx){
+  const tab = findTab(tabId);
+  const cat = tab.categories.find(c=>c.id===catId);
+  const item = cat.items[idx];
+  if (!item) return;
+
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `
+    <div class="ctxTitle">${escapeHtml(item.name)}</div>
+    <button class="ctxItem" data-act="open">▶ 開く</button>
+    <button class="ctxItem" data-act="edit">✎ 編集</button>
+    <button class="ctxItem" data-act="icon">🖼 アイコンを変更…</button>
+    <button class="ctxItem" data-act="copy">⧉ パスをコピー</button>
+    <div style="height:1px;background:var(--divider);margin:4px 6px;"></div>
+    <button class="ctxItem" data-act="move">↔ カテゴリ/タブを移動…</button>
+    <button class="ctxItem" data-act="dup">⎘ 複製…</button>
+    <div style="height:1px;background:var(--divider);margin:4px 6px;"></div>
+    <button class="ctxItem danger" data-act="delete">🗑 削除</button>
+  `;
+  menu.querySelector('[data-act="open"]').onclick = ()=>{ closeContextMenu(); handleOpen(item); };
+  menu.querySelector('[data-act="edit"]').onclick = ()=>{ closeContextMenu(); openAddModal({ tabId, catId, idx, item }); };
+  menu.querySelector('[data-act="icon"]').onclick = (ev)=>{ ev.stopPropagation(); openIconPicker(ev, tabId, catId, idx); };
+  menu.querySelector('[data-act="copy"]').onclick = ()=>{ closeContextMenu(); navigator.clipboard.writeText(item.path).catch(()=>{}); };
+  menu.querySelector('[data-act="move"]').onclick = ()=>{ closeContextMenu(); openMoveCopyModal(tabId, catId, idx, 'move'); };
+  menu.querySelector('[data-act="dup"]').onclick = ()=>{ closeContextMenu(); openMoveCopyModal(tabId, catId, idx, 'copy'); };
+  menu.querySelector('[data-act="delete"]').onclick = async ()=>{
+    closeContextMenu();
+    if (!await showConfirm(`「${item.name}」を削除しますか？`)) return;
+    cat.items.splice(idx, 1);
+    persistData();
+    render();
+  };
+  positionAndShowMenu(e);
+}
+
+function openCategoryContextMenu(e, tab, cat){
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `
+    <div class="ctxTitle">カテゴリ：${cat.name ? escapeHtml(cat.name) : '（未分類）'}</div>
+    <button class="ctxItem" data-act="rename">✎ 名前を変更</button>
+    <button class="ctxItem" data-act="addcat">＋ 新しいカテゴリを追加</button>
+    <div style="height:1px;background:var(--divider);margin:4px 6px;"></div>
+    <button class="ctxItem danger" data-act="delcat">🗑 カテゴリを削除</button>
+  `;
+  menu.querySelector('[data-act="rename"]').onclick = async ()=>{
+    closeContextMenu();
+    const name = await showTextPrompt('カテゴリ名（空欄可＝未分類）', cat.name);
+    if (name === null) return;
+    cat.name = name;
+    persistData();
+    renderContent();
+  };
+  menu.querySelector('[data-act="addcat"]').onclick = async ()=>{
+    closeContextMenu();
+    const name = await showTextPrompt('新しいカテゴリ名（空欄可＝未分類）', '');
+    if (name === null) return;
+    tab.categories.push({ id:newId('cat'), name, items:[] });
+    persistData();
+    renderContent();
+  };
+  menu.querySelector('[data-act="delcat"]').onclick = async ()=>{
+    closeContextMenu();
+    if (tab.categories.length <= 1) { await showConfirm('最後の1つのカテゴリは削除できません', 'OK'); return; }
+    if (!await showConfirm(`カテゴリ「${cat.name || '（未分類）'}」を削除しますか？（中の項目もすべて削除されます）`)) return;
+    tab.categories = tab.categories.filter(c=>c.id!==cat.id);
+    persistData();
+    renderContent();
+  };
+  positionAndShowMenu(e);
+}
+
+function openTabContextMenu(e, tab){
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `
+    <div class="ctxTitle">タブ：${escapeHtml(tab.name)}</div>
+    <button class="ctxItem" data-act="rename">✎ 名前を変更</button>
+    <button class="ctxItem" data-act="addcat">＋ カテゴリを追加</button>
+    <div style="height:1px;background:var(--divider);margin:4px 6px;"></div>
+    <button class="ctxItem danger" data-act="deltab">🗑 タブを削除</button>
+  `;
+  menu.querySelector('[data-act="rename"]').onclick = async ()=>{
+    closeContextMenu();
+    const name = await showTextPrompt('タブ名', tab.name);
+    if (!name) return;
+    tab.name = name;
+    persistData();
+    renderTabs();
+  };
+  menu.querySelector('[data-act="addcat"]').onclick = async ()=>{
+    closeContextMenu();
+    const name = await showTextPrompt('カテゴリ名（空欄可＝未分類）', '');
+    if (name === null) return;
+    tab.categories.push({ id:newId('cat'), name, items:[] });
+    persistData();
+    if (state.activeTabId === tab.id) renderContent();
+  };
+  menu.querySelector('[data-act="deltab"]').onclick = async ()=>{
+    closeContextMenu();
+    if (state.data.tabs.length <= 1) { await showConfirm('最後の1つのタブは削除できません', 'OK'); return; }
+    if (!await showConfirm(`タブ「${tab.name}」を削除しますか？（中の項目もすべて削除されます）`)) return;
+    state.data.tabs = state.data.tabs.filter(t=>t.id!==tab.id);
+    if (state.activeTabId === tab.id) state.activeTabId = state.data.tabs[0].id;
+    persistData();
+    render();
+  };
+  positionAndShowMenu(e);
+}
+
+function positionAndShowMenu(e){
+  const overlay = document.getElementById('ctxOverlay');
+  const menu = document.getElementById('ctxMenu');
+  overlay.style.display = 'block';
+  const x = Math.min(e.clientX, window.innerWidth - 230);
+  const y = Math.min(e.clientY, window.innerHeight - 260);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+function closeContextMenu(){
+  document.getElementById('ctxOverlay').style.display = 'none';
+}
+
+// ---- アイコン変更（簡易版：絵文字 or 画像ファイル選択） ----
+function openIconPicker(e, tabId, catId, idx){
+  const tab = findTab(tabId);
+  const cat = tab.categories.find(c=>c.id===catId);
+  const item = cat.items[idx];
+  const emojis = ['🔗','📁','📄','⚙️','📊','💬','🧰','🗂️','⭐','🎯','🖥️','🌐','📌','🔧','💡','📈','📚','🎮','🛠️','📝'];
+
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `
+    <div class="ctxTitle">アイコンを選択：${escapeHtml(item.name)}</div>
+    <div id="emojiGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:4px;">
+      ${emojis.map(em=>`<button class="emojiBtn" data-emoji="${em}" style="font-size:19px;padding:6px 0;border:0;border-radius:6px;background:transparent;cursor:pointer;">${em}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--divider);margin-top:2px;">
+      <input id="customEmojiInput" placeholder="絵文字を貼り付け" style="flex:1 1 auto;height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--inputBorder);background:var(--inputBg);color:var(--textPrimary);font-size:14px;">
+      <button id="customEmojiOk" style="flex:0 0 auto;height:30px;padding:0 12px;border:0;border-radius:6px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;">OK</button>
+    </div>
+    <div style="padding:2px 4px 4px;">
+      <button class="ctxItem" data-act="clear">↺ 種別アイコンに戻す</button>
+    </div>
+  `;
+
+  const finish = (icon)=>{
+    item.icon = icon;
+    persistData();
+    renderContent();
+    closeContextMenu();
+  };
+  menu.querySelectorAll('.emojiBtn').forEach(btn=>{
+    btn.addEventListener('mouseenter', ()=>{ btn.style.background = 'var(--accentSoft)'; });
+    btn.addEventListener('mouseleave', ()=>{ btn.style.background = 'transparent'; });
+    btn.addEventListener('click', ()=>finish({ kind:'emoji', value: btn.dataset.emoji }));
+  });
+  menu.querySelector('#customEmojiOk').addEventListener('click', ()=>{
+    const v = document.getElementById('customEmojiInput').value.trim();
+    if (!v) return;
+    finish({ kind:'emoji', value: v.slice(0, 4) });
+  });
+  menu.querySelector('[data-act="clear"]').addEventListener('click', ()=>finish({ kind:'none', value:null }));
+
+  positionAndShowMenu(e);
+}
+
+// =========================================================
+// 追加/編集モーダル
+// =========================================================
+function openAddModal(ctx){
+  const isEdit = !!(ctx && ctx.item);
+  const isFill = !!(ctx && !ctx.item); // 空きスロットへの新規追加（既存項目なし）
+  const item = isEdit ? ctx.item : { name:'', type:'file', path:'' };
+  const modalTab = (isEdit || isFill) ? findTab(ctx.tabId) : activeTab();
+  const hasCategories = modalTab.categories.length > 0;
+
+  const overlay = document.getElementById('modalOverlay');
+  const modal = document.getElementById('modal');
+
+  const catOptions = modalTab.categories.map(c=>{
+    const selected = (isEdit || isFill) ? (c.id === ctx.catId) : (c === modalTab.categories[0]);
+    return `<option value="${c.id}" ${selected?'selected':''}>${c.name ? escapeHtml(c.name) : '（未分類）'}</option>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modalHead">
+      <span class="title">${isEdit ? '項目を編集' : '項目を追加'}</span>
+      <button id="modalClose">✕</button>
+    </div>
+    <div class="modalBody">
+      <div class="field">
+        <label>名前</label>
+        <input id="fName" value="${escapeAttr(item.name)}" placeholder="例：勤怠管理システム">
+      </div>
+      <div class="field">
+        <label>カテゴリ</label>
+        <select id="fCategory">
+          ${catOptions}
+          <option value="__new__" ${hasCategories ? '' : 'selected'}>＋ 新しいカテゴリを作成…</option>
+        </select>
+        <input id="fNewCategoryName" placeholder="新しいカテゴリ名（空欄可＝未分類）" style="display:${hasCategories ? 'none' : 'block'};margin-top:6px;">
+      </div>
+      <label style="display:block;font-size:11.5px;font-weight:600;color:var(--textSecondary);margin:0 0 5px;">パス / URL</label>
+      <div class="pathRow">
+        <input id="fPath" value="${escapeAttr(item.path)}" placeholder="https://…  または  C:\\Program Files\\…">
+      </div>
+      <div class="browseRow">
+        <button class="browseBtn" id="btnBrowseFile">ファイルを選択（複数可）</button>
+        <button class="browseBtn" id="btnBrowseFolder">フォルダを選択</button>
+      </div>
+      <div style="font-size:11px;color:var(--textMuted);margin:-8px 0 12px;">URL/ファイル/フォルダ/exeの種別は保存時に自動判定します。複数ファイルを選択した場合、名前欄・パス欄はスキップし選択中のカテゴリへそのまま一括追加します</div>
+      <div class="errMsg" id="errMsg" style="display:none;"></div>
+    </div>
+    <div class="modalFoot">
+      <button class="btnGhost" id="btnCancel">キャンセル</button>
+      <button class="btnPrimary" id="btnSave">${isEdit ? '保存' : '追加'}</button>
+    </div>
+  `;
+
+  const catSelect = modal.querySelector('#fCategory');
+  const newCatInput = modal.querySelector('#fNewCategoryName');
+  catSelect.addEventListener('change', ()=>{
+    newCatInput.style.display = catSelect.value === '__new__' ? 'block' : 'none';
+  });
+
+  // 選択中のカテゴリを解決する。"__new__"なら新規カテゴリをこの場でtabへ追加する。
+  const resolveTargetCategory = ()=>{
+    if (catSelect.value === '__new__') {
+      const cat = { id:newId('cat'), name: newCatInput.value.trim(), items:[] };
+      modalTab.categories.push(cat);
+      return cat;
+    }
+    return modalTab.categories.find(c=>c.id===catSelect.value) || modalTab.categories[0];
+  };
+
+  const fillFromPath = (path)=>{
+    document.getElementById('fPath').value = path;
+    if (!document.getElementById('fName').value) {
+      const base = path.split(/[\\\/]/).filter(Boolean).pop() || path;
+      document.getElementById('fName').value = base;
+    }
+  };
+
+  const close = ()=>{ overlay.style.display = 'none'; };
+
+  modal.querySelector('#btnBrowseFile').addEventListener('click', async ()=>{
+    let paths = [];
+    try { paths = await window.go.main.App.BrowseMultipleFiles(); }
+    catch(e){ console.error(e); return; }
+    if (!paths || paths.length === 0) return;
+
+    if (paths.length === 1) {
+      // 1件だけなら従来通り、名前を編集してから保存するフォームに反映する
+      fillFromPath(paths[0]);
+      return;
+    }
+    // 複数選択時は名前入力を経由せず、選択中のカテゴリへそのまま一括追加する
+    const targetCat = resolveTargetCategory();
+    for (const p of paths) {
+      const type = await detectType(p, 'file');
+      const base = p.split(/[\\\/]/).filter(Boolean).pop() || p;
+      const name = type === 'folder' ? base : base.replace(/\.[^.]+$/, '');
+      targetCat.items.push({ id:newId('item'), name, path:p, type, icon:{kind:'none', value:null} });
+    }
+    persistData();
+    close();
+    render();
+  });
+  modal.querySelector('#btnBrowseFolder').addEventListener('click', async ()=>{
+    try { const p = await window.go.main.App.BrowseFolder(); if (p) fillFromPath(p); }
+    catch(e){ console.error(e); }
+  });
+
+  modal.querySelector('#modalClose').addEventListener('click', close);
+  modal.querySelector('#btnCancel').addEventListener('click', close);
+
+  modal.querySelector('#btnSave').addEventListener('click', async ()=>{
+    const name = document.getElementById('fName').value.trim();
+    const path = document.getElementById('fPath').value.trim();
+    const err = document.getElementById('errMsg');
+    if (!name || !path) {
+      err.textContent = '名前とパス/URLは必須です';
+      err.style.display = 'block';
+      return;
+    }
+    const btnSave = document.getElementById('btnSave');
+    btnSave.disabled = true;
+    const type = await detectType(path, isEdit ? item.type : 'file');
+    btnSave.disabled = false;
+
+    const targetCat = resolveTargetCategory();
+
+    if (isEdit) {
+      const oldCat = modalTab.categories.find(c=>c.id===ctx.catId);
+      item.name = name; item.path = path; item.type = type;
+      if (oldCat && oldCat.id !== targetCat.id) {
+        oldCat.items.splice(ctx.idx, 1);
+        targetCat.items.push(item);
+      }
+    } else if (isFill) {
+      const newItem = { id:newId('item'), name, path, type, icon:{kind:'none', value:null} };
+      const fillCat = modalTab.categories.find(c=>c.id===ctx.catId);
+      if (fillCat && fillCat.id === targetCat.id) {
+        // カテゴリを変更していない場合は、元の空きスロットへそのまま格納する
+        fillCat.items[ctx.idx] = newItem;
+      } else {
+        // 別カテゴリを選んだ場合は末尾に追加し、元の空きスロットはそのまま残す
+        targetCat.items.push(newItem);
+      }
+    } else {
+      targetCat.items.push({ id:newId('item'), name, path, type, icon:{kind:'none', value:null} });
+    }
+    persistData();
+    close();
+    render();
+  });
+
+  overlay.style.display = 'flex';
+}
+function closeModal(){ document.getElementById('modalOverlay').style.display = 'none'; }
+
+// =========================================================
+// 項目の移動（カテゴリ付け替え・他タブへの移動）／複製
+// =========================================================
+function openMoveCopyModal(sourceTabId, sourceCatId, idx, mode){
+  const srcTab = findTab(sourceTabId);
+  const srcCat = srcTab.categories.find(c=>c.id===sourceCatId);
+  const item = srcCat.items[idx];
+  if (!item) return;
+
+  const overlay = document.getElementById('modalOverlay');
+  const modal = document.getElementById('modal');
+
+  const buildCatOptions = (tab)=>{
+    const opts = tab.categories.map(c=>
+      `<option value="${c.id}" ${c.id===sourceCatId && tab.id===sourceTabId ? 'selected':''}>${c.name?escapeHtml(c.name):'（未分類）'}</option>`
+    ).join('');
+    return opts + `<option value="__new__">＋ 新しいカテゴリを作成…</option>`;
+  };
+
+  modal.innerHTML = `
+    <div class="modalHead">
+      <span class="title">${mode==='copy' ? '項目を複製' : '項目を移動'}：${escapeHtml(item.name)}</span>
+      <button id="modalClose">✕</button>
+    </div>
+    <div class="modalBody">
+      <div class="field">
+        <label>移動先タブ</label>
+        <select id="mTab">${state.data.tabs.map(t=>`<option value="${t.id}" ${t.id===sourceTabId?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>移動先カテゴリ</label>
+        <select id="mCategory">${buildCatOptions(srcTab)}</select>
+        <input id="mNewCategoryName" placeholder="新しいカテゴリ名（空欄可＝未分類）" style="display:none;margin-top:6px;">
+      </div>
+    </div>
+    <div class="modalFoot">
+      <button class="btnGhost" id="btnCancel">キャンセル</button>
+      <button class="btnPrimary" id="btnMoveCopyOk">${mode==='copy' ? '複製する' : '移動する'}</button>
+    </div>
+  `;
+
+  const tabSelect = modal.querySelector('#mTab');
+  const catSelect = modal.querySelector('#mCategory');
+  const newCatInput = modal.querySelector('#mNewCategoryName');
+
+  const refreshCatOptions = ()=>{
+    const t = findTab(tabSelect.value);
+    catSelect.innerHTML = buildCatOptions(t);
+    newCatInput.style.display = 'none';
+  };
+  tabSelect.addEventListener('change', refreshCatOptions);
+  catSelect.addEventListener('change', ()=>{
+    newCatInput.style.display = catSelect.value === '__new__' ? 'block' : 'none';
+  });
+
+  const close = ()=>{ overlay.style.display = 'none'; };
+  modal.querySelector('#modalClose').addEventListener('click', close);
+  modal.querySelector('#btnCancel').addEventListener('click', close);
+
+  modal.querySelector('#btnMoveCopyOk').addEventListener('click', ()=>{
+    const targetTab = findTab(tabSelect.value);
+    let targetCat;
+    if (catSelect.value === '__new__') {
+      targetCat = { id:newId('cat'), name: newCatInput.value.trim(), items:[] };
+      targetTab.categories.push(targetCat);
+    } else {
+      targetCat = targetTab.categories.find(c=>c.id===catSelect.value);
+      if (!targetCat) { targetCat = { id:newId('cat'), name:'', items:[] }; targetTab.categories.push(targetCat); }
+    }
+
+    if (mode === 'copy') {
+      const clone = {
+        id: newId('item'),
+        name: item.name,
+        type: item.type,
+        path: item.path,
+        icon: item.icon ? { kind: item.icon.kind, value: item.icon.value } : { kind:'none', value:null }
+      };
+      targetCat.items.push(clone);
+    } else {
+      srcCat.items.splice(idx, 1);
+      targetCat.items.push(item);
+    }
+    persistData();
+    close();
+    if (targetTab.id !== state.activeTabId) {
+      state.activeTabId = targetTab.id;
+      state.settings.lastTab = targetTab.id;
+      persistSettings();
+    }
+    render();
+  });
+
+  overlay.style.display = 'flex';
+}
+
+// パス文字列から種別("url"|"file"|"folder"|"exe")を自動判定する。
+// 1. スキーム付きURL(http://等)は最優先でurl扱い
+// 2. それ以外は実在パスとしてGo側(os.Stat)に判定を依頼
+// 3. 判定不能（存在しないパス等）の場合はfallbackへ（新規追加時は'file'、編集時は元の種別）
+async function detectType(path, fallback){
+  const trimmed = path.trim();
+  if (/^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//.test(trimmed)) return 'url';
+  try {
+    const t = await window.go.main.App.ResolvePathType(trimmed);
+    if (t) return t;
+  } catch(e) { /* ローカルに存在しないパス。URL誤入力等も含む */ }
+  if (/^www\./i.test(trimmed)) return 'url';
+  return fallback || 'file';
+}
+
+// ---- ユーティリティ ----
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s){ return escapeHtml(s); }
+</script>
+</body>
+</html>
