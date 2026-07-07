@@ -19,6 +19,8 @@ export function OpenPath(arg1:string):Promise<void>;
 
 export function PasteClipboardFiles():Promise<Array<{name:string; path:string; type:string}>>;
 
+export function ReadImageDataURI(arg1:string):Promise<string>;
+
 export function ResolvePathType(arg1:string):Promise<string>;
 
 export function SaveData(arg1:string):Promise<void>;
