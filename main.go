@@ -45,6 +45,13 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 220, G: 224, B: 230, A: 1},
 		OnStartup:        app.startup,
 		OnBeforeClose:    app.beforeClose,
+		// タイトルバー無し(フレームレス)。ドラッグ移動用の領域はフロント側でCSSの
+		// --wails-draggable:drag を指定する(.ClaudeCode/DESIGN.md参照)。
+		// この2つはWailsのデフォルト値と同じだが、明示しないとruntime:ready時に
+		// 空文字で上書きされてしまい、ドラッグ判定が壊れるため必須。
+		Frameless:       true,
+		CSSDragProperty: "--wails-draggable",
+		CSSDragValue:    "drag",
 		Bind: []interface{}{
 			app,
 		},

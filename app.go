@@ -32,6 +32,8 @@ type App struct {
 type Settings struct {
 	WindowWidth   int               `json:"windowWidth"`
 	WindowHeight  int               `json:"windowHeight"`
+	WindowX       int               `json:"windowX"`
+	WindowY       int               `json:"windowY"`
 	LastTab       string            `json:"lastTab"`
 	Theme         string            `json:"theme"` // "system" | "light" | "dark"
 	ViewModeByTab map[string]string `json:"viewModeByTab"`
@@ -75,23 +77,28 @@ func (a *App) startup(ctx context.Context) {
 	// ctxを取得できるstartup以降でruntime.OnFileDropを呼ぶ必要がある。
 	runtime.OnFileDrop(ctx, a.onFileDrop)
 
-	// 引数で明示指定されていないサイズだけ、保存済み設定を優先して反映する。
-	// 優先順位: 起動引数 > 保存済み設定 > デフォルト値(main.goのflagデフォルトが既に適用済み)
-	if a.widthSet && a.heightSet {
-		return
-	}
 	s, err := a.readSettings()
 	if err != nil || s == nil {
 		return
 	}
-	w, h := a.initWidth, a.initHeight
-	if !a.widthSet && s.WindowWidth > 0 {
-		w = s.WindowWidth
+
+	// 引数で明示指定されていないサイズだけ、保存済み設定を優先して反映する。
+	// 優先順位: 起動引数 > 保存済み設定 > デフォルト値(main.goのflagデフォルトが既に適用済み)
+	if !a.widthSet || !a.heightSet {
+		w, h := a.initWidth, a.initHeight
+		if !a.widthSet && s.WindowWidth > 0 {
+			w = s.WindowWidth
+		}
+		if !a.heightSet && s.WindowHeight > 0 {
+			h = s.WindowHeight
+		}
+		runtime.WindowSetSize(ctx, w, h)
 	}
-	if !a.heightSet && s.WindowHeight > 0 {
-		h = s.WindowHeight
+
+	// ウィンドウ位置は起動引数での指定手段が無いため、保存済みがあれば常に復元する。
+	if s.WindowX != 0 || s.WindowY != 0 {
+		runtime.WindowSetPosition(ctx, s.WindowX, s.WindowY)
 	}
-	runtime.WindowSetSize(ctx, w, h)
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
@@ -136,12 +143,15 @@ func (a *App) SaveWindowSize() error {
 		return nil
 	}
 	w, h := runtime.WindowGetSize(a.ctx)
+	x, y := runtime.WindowGetPosition(a.ctx)
 	s, err := a.readSettings()
 	if err != nil || s == nil {
 		s = &Settings{}
 	}
 	s.WindowWidth = w
 	s.WindowHeight = h
+	s.WindowX = x
+	s.WindowY = y
 	if s.ViewModeByTab == nil {
 		s.ViewModeByTab = map[string]string{}
 	}
