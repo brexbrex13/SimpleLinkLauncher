@@ -81,16 +81,12 @@
 
 ## 配布パッケージング
 
-`frontend/link-launcher.html` はexeにembedされないため、配布物には別途同梱する必要がある
-（詳細は [`DESIGN.md`](./DESIGN.md) の「アセットハンドラ」節を参照）。
+手順は [`BUILD.md`](./BUILD.md) を参照。ここには未検証事項のみ記録する。
 
-- NSISインストーラ（`wails build --nsis`）: `build/windows/installer/project.nsi` に
-  `frontend\link-launcher.html` を `$INSTDIR\frontend\` へ配置する `File` 命令を追加済み。
-  `wails_tools.nsh` は `wails build` のたびに自動生成し直されるため、同梱処理は
-  自動生成されない `project.nsi` 側に書いてある。
-- ポータブル版（exe単体配布）: `v*.*.*` タグをpushすると `.github/workflows/release.yml` が
-  `wails build --nsis` の実行、ポータブルZIPへの同梱、GitHub Releaseへのアップロードまで自動で行う
-  （手順はREADMEの「リリース」参照）。ワークフロー自体はWindows実機での
-  `wails build --nsis` 成功を前提にしており、CI上での実行結果はまだ確認できていない
-  （NSISが `choco install nsis` で問題なく入るか、`link-launcher-amd64-installer.exe`
-  というファイル名で出力されるか、等）。初回タグpush時にActionsの実行結果を確認すること。
+`frontend/link-launcher.html` はexeにembedされないため、配布物には別途同梱する必要がある
+（詳細は [`DESIGN.md`](./DESIGN.md) の「アセットハンドラ」節を参照）。NSISインストーラ
+（`build/windows/installer/project.nsi`）・GitHub Actions（`.github/workflows/release.yml`）
+双方とも同梱するようにしてあるが、ワークフロー自体はWindows実機での`wails build --nsis`成功を
+前提にしており、CI上での実行結果はまだ確認できていない（NSISが`choco install nsis`で問題なく
+入るか、`link-launcher-amd64-installer.exe`というファイル名で出力されるか、等）。
+初回タグpush時にActionsの実行結果を確認すること。
