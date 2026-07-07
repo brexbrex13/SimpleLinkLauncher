@@ -18,6 +18,10 @@ export function ExtractIcon(arg1) {
   return window['go']['main']['App']['ExtractIcon'](arg1);
 }
 
+export function FetchPageTitle(arg1) {
+  return window['go']['main']['App']['FetchPageTitle'](arg1);
+}
+
 export function GetSystemTheme() {
   return window['go']['main']['App']['GetSystemTheme']();
 }

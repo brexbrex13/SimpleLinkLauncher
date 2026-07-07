@@ -862,8 +862,9 @@ function openEmptySlotContextMenu(e, tabId, catId, idx, isTail){
 //    見つかった場合はGo側でimages/フォルダへPNG保存し(PasteClipboardImage)、
 //    通常の画像アイテムとして登録する（保存したファイルの扱いは他のfile種別アイテムと同じで、
 //    アイテム削除時にファイル自体は削除しない。.ClaudeCode/DESIGN.md参照）。
-// 3. どちらも無ければテキスト(URL等)として扱い、追加モーダルにプリフィルする
-//    （種別は保存時にdetectType()が自動判定するため、URLはそのままURL種別になる）。
+// 3. どちらも無ければテキスト(URL等)として扱い、その場で即時登録する（種別はdetectType()で
+//    自動判定。URLの場合はGo側FetchPageTitleでページの<title>を取得し項目名にする。
+//    名前を編集したい場合は登録後に右クリック→編集で行う）。
 async function pasteFromClipboard(tabId, catId, idx){
   const app = window.go && window.go.main && window.go.main.App;
 
@@ -900,7 +901,19 @@ async function pasteFromClipboard(tabId, catId, idx){
     showToast('クリップボードが空です');
     return;
   }
-  openAddModal({ tabId, catId, idx, prefillPath: text });
+  const type = await detectType(text, 'file');
+  let name = text;
+  if (type === 'url') {
+    // URLの場合はページの<title>を項目名として使う（取得失敗時はURL文字列のままにする）。
+    try {
+      const title = await window.go.main.App.FetchPageTitle(text);
+      if (title) name = title;
+    } catch(e) { /* タイムアウト・404等。フォールバック済みなので無視してよい */ }
+  } else {
+    const base = text.split(/[\\\/]/).filter(Boolean).pop() || text;
+    name = type === 'folder' ? base : base.replace(/\.[^.]+$/, '');
+  }
+  insertItemsAt(tabId, catId, idx, [{ name, path: text, type }]);
 }
 
 // D&D(onFilesDropped)と同じ形の解決済みアイテム一覧を、指定の空き枠に挿入する。
@@ -1454,9 +1467,6 @@ function openAddModal(ctx){
       document.getElementById('fName').value = base;
     }
   };
-  if (ctx && ctx.prefillPath) {
-    fillFromPath(ctx.prefillPath);
-  }
 
   const close = ()=>{ overlay.style.display = 'none'; };
 

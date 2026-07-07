@@ -46,14 +46,18 @@
   差し替えを検討する。
 - **クリップボードの画像貼り付け（`clipboard_windows.go`の`PasteClipboardImage`）** — こちらも
   GDI APIを直接syscallで叩く自作実装で、実機での動作確認をしていない。特に:
-  - 24bit/32bit(BI_RGB、非圧縮)以外のDIBフォーマット（16bit、パレット付き8bit以下、圧縮DIB等）は
-    未対応でエラーを返す。実際にどのアプリ・操作でどの形式が来るか（Snipping Tool、ブラウザの
-    画像コピー、Excel/Wordのコピー等）は未検証。
+  - 24/32bit(BI_RGB)・16/32bit(BI_BITFIELDS、マスク付き)に対応。パレット付き8bit以下や
+    RLE圧縮等その他のDIBフォーマットは未対応でエラーを返す。実際にどのアプリ・操作でどの形式が
+    来るか（Snipping Tool、ブラウザの画像コピー、Excel/Wordのコピー等）は未検証。
+    v0.1.0実機フィードバックで「クリップボード画像貼り付けが失敗する」報告があったため
+    BI_BITFIELDS対応を追加したが、実機での動作確認（特にマスクのビット位置・幅の想定が
+    実際のツールの出力と合っているか）はまだできていない。
   - `GlobalLock`で取得したメモリを`unsafe.Pointer`でそのまま解釈しており、`go vet`が
-    `possible misuse of unsafe.Pointer`を1件報告する（syscallが返す生アドレスを最初に
-    ポインタへ変換する箇所で、Win32メモリ interop では一般的に避けられないパターン。
-    実際にはOS管理のメモリで、`OpenClipboard`〜`CloseClipboard`の間で同期的に読むだけなので
-    安全と判断しているが、実機での動作で問題が出ないかは確認が必要）。
+    `possible misuse of unsafe.Pointer`を4件報告する（syscallが返す生アドレスを最初に
+    ポインタへ変換する箇所、およびBI_BITFIELDSのカラーマスク3個を読む箇所。Win32メモリ
+    interop では一般的に避けられないパターン。実際にはOS管理のメモリで、`OpenClipboard`〜
+    `CloseClipboard`の間で同期的に読むだけなので安全と判断しているが、実機での動作で
+    問題が出ないかは確認が必要）。
   - 保存先`images/`フォルダの肥大化は自動クリーンアップしない設計（意図的。`PROGRESS.md`参照）。
     大量に貼り付けた場合の見え方はユーザー側で確認してほしい。
 - **`frontend/wailsjs/go/main/App.{js,d.ts}`の手動編集** — `wails`CLIが使えない環境のため、

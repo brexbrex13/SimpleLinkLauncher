@@ -5,11 +5,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -273,6 +278,43 @@ func (a *App) ReadImageDataURI(path string) (string, error) {
 		return "", err
 	}
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
+}
+
+var htmlTitleRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+
+// FetchPageTitle はURLのHTMLを取得し<title>タグの内容を返す。
+// クリップボード貼り付け時にURLの項目名として使う（取得失敗時は呼び出し側でパス由来の名前に
+// フォールバックする）。favicon取得と同様、CORS制約を避けるためGo側で取得する。
+func (a *App) FetchPageTitle(url string) (string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("ページの取得に失敗しました: %s", resp.Status)
+	}
+	// title要素は先頭付近にあるのが通常のため、読みすぎを避け先頭64KBのみ調べる。
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return "", err
+	}
+	m := htmlTitleRe.FindSubmatch(body)
+	if m == nil {
+		return "", fmt.Errorf("titleタグが見つかりませんでした")
+	}
+	title := html.UnescapeString(string(m[1]))
+	title = strings.Join(strings.Fields(title), " ")
+	if title == "" {
+		return "", fmt.Errorf("titleタグが空でした")
+	}
+	return title, nil
 }
 
 // ---- 外部ファイルのドラッグ&ドロップ受信 ----

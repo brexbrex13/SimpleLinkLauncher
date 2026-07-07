@@ -9,6 +9,8 @@ export function BrowseMultipleFiles():Promise<Array<string>>;
 
 export function ExtractIcon(arg1:string):Promise<string>;
 
+export function FetchPageTitle(arg1:string):Promise<string>;
+
 export function GetSystemTheme():Promise<string>;
 
 export function LoadData():Promise<string>;
