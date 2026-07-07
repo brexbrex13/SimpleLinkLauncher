@@ -13,9 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App はGo側の窓口関数群。
-// UI・データ加工・並び替えロジック等はフロント(JS)側で完結させ、
-// ここにはブラウザのサンドボックス制約でJSから到達できない処理のみを実装する。
+// App はGo側の窓口関数群。設計方針は .ClaudeCode/DESIGN.md を参照。
 type App struct {
 	ctx context.Context
 
@@ -31,8 +29,6 @@ type App struct {
 }
 
 // Settings はexeと同階層に保存するアプリ設定。リンクデータ本体(link-data.json)とは分離する。
-// （理由：ウィンドウサイズ保存のような頻繁な書き込みと、リンク一覧の書き込みを分けたほうが
-//   　万一の書き込み失敗時の影響範囲が小さく、可読性も高いため）
 type Settings struct {
 	WindowWidth   int               `json:"windowWidth"`
 	WindowHeight  int               `json:"windowHeight"`
@@ -73,7 +69,6 @@ func (a *App) assetHandler() *fileHandler {
 // ---- 起動 / 終了 ----
 
 func (a *App) startup(ctx context.Context) {
-	fmt.Println("startup")
 	a.ctx = ctx
 
 	// ネイティブファイルドロップの受信登録。options.Appのフィールドではなく、
@@ -96,8 +91,6 @@ func (a *App) startup(ctx context.Context) {
 	if !a.heightSet && s.WindowHeight > 0 {
 		h = s.WindowHeight
 	}
-	// NOTE: 起動時は一旦デフォルトサイズでウィンドウが作られた後にリサイズされるため、
-	// 一瞬サイズが変化して見える可能性がある。気になる場合は要調整（実機で確認すること）。
 	runtime.WindowSetSize(ctx, w, h)
 }
 
@@ -250,11 +243,7 @@ type DroppedItem struct {
 
 // onFileDrop はWailsのネイティブOnFileDropから呼ばれる（options.AppにBindしてある）。
 // 座標(x,y)とパス一覧をフロントへイベントで転送する。挿入位置の判定はフロント側で行う。
-//
-// 要検証: WailsバージョンによってはWebView側のdragover/drop(HTML5 DnD)と併用時に
-// 座標系や発火順序が異なる可能性がある。実機で必ず確認すること。
 func (a *App) onFileDrop(x, y int, paths []string) {
-	fmt.Println("===== OnFileDrop CALLED =====")
 	items := make([]DroppedItem, 0, len(paths))
 	for _, p := range paths {
 		t, err := a.ResolvePathType(p)
