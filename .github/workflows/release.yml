@@ -24,7 +24,19 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
 
       - name: Install NSIS
-        run: choco install nsis -y
+        shell: pwsh
+        run: |
+          choco install nsis -y
+          # chocoがマシンのPATHを更新しても、既に起動済みのRunnerプロセスは再読込しないため、
+          # makensisが後続ステップ(wails build --nsis)から見つからない(cf. Wailsが
+          # "Cannot create installer: makensis not found" として警告するだけで失敗扱いに
+          # ならず、インストーラexeが生成されないままジョブ後半で失敗する)。
+          # $GITHUB_PATH に明示的に追記して後続ステップに引き継ぐ。
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify NSIS is on PATH
+        shell: pwsh
+        run: makensis -VERSION
 
       # フロントエンド(frontend/link-launcher.html)はGoバイナリにembedしない設計のため
       # (.ClaudeCode/DESIGN.md参照)、exeと別に同梱する必要がある。
@@ -33,6 +45,8 @@ jobs:
       - name: Build (exe + NSIS installer)
         run: wails build --nsis
 
+      # ポータブルZIPとインストーラのコピーはステップを分け、片方が失敗しても
+      # もう片方の成果物はReleaseにアップロードされるようにする。
       - name: Package portable zip
         shell: pwsh
         run: |
@@ -42,9 +56,15 @@ jobs:
           Copy-Item "build/bin/link-launcher.exe" "$stage/"
           Copy-Item "frontend/link-launcher.html" "$stage/frontend/"
           Compress-Archive -Path "$stage/*" -DestinationPath "link-launcher-$version-windows-portable.zip"
+
+      - name: Stage installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
           Copy-Item "build/bin/link-launcher-amd64-installer.exe" "link-launcher-$version-windows-installer.exe"
 
       - name: Create Release
+        if: ${{ !cancelled() }}
         uses: softprops/action-gh-release@v2
         with:
           files: |
