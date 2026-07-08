@@ -7,11 +7,15 @@ export function BrowseFolder():Promise<string>;
 
 export function BrowseMultipleFiles():Promise<Array<string>>;
 
+export function DeleteManagedImage(arg1:string):Promise<void>;
+
 export function ExtractIcon(arg1:string):Promise<string>;
 
 export function FetchPageTitle(arg1:string):Promise<string>;
 
 export function GetSystemTheme():Promise<string>;
+
+export function IsManagedImage(arg1:string):Promise<boolean>;
 
 export function ListDirectory(arg1:string):Promise<Array<{name:string; path:string; isDir:boolean}>>;
 
