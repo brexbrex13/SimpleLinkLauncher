@@ -86,6 +86,9 @@
   .tabBtn { flex:0 0 auto; display:flex; align-items:center; gap:6px; height:28px; padding:0 12px; border:0; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; background:transparent; color:var(--textSecondary); }
   .tabBtn.active { background:var(--card); color:var(--textPrimary); box-shadow:0 1px 2px var(--shadow); }
   .tabBtn:hover { background:var(--rowHover); }
+  .tabBtn.homeTab { padding:0; width:28px; justify-content:center; }
+  #btnAddTab { flex:0 0 auto; width:26px; height:26px; border:0; border-radius:6px; background:transparent; color:var(--textSecondary); cursor:pointer; }
+  #btnAddTab:hover { background:var(--rowHover); }
 
   /* コンテンツ */
   /* margin-right: フレームレスウィンドウの右端リサイズ判定(Wails既定6px)が、
@@ -109,6 +112,9 @@
   .tile.addSlotTile:hover { color:var(--accent); border-color:var(--accentBorder,var(--accent)); background:var(--dropBg); }
   .tile .name { width:100%; font-size:12.5px; font-weight:600; text-align:center; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .tile.emptySlot { border-style:dashed; background:var(--dropBg); box-shadow:none; cursor:default; opacity:.5; border-left-width:1px; }
+  .favStar { color:#f2b100; }
+  .tile .favStar { position:absolute; top:6px; right:8px; font-size:13px; line-height:1; }
+  .listRow .favStar { flex:0 0 auto; font-size:12px; line-height:1; }
 
   .listRows { display:flex; flex-direction:column; border-radius:8px; overflow:hidden; border:1px solid var(--cardBorder); background:var(--card); }
   .listRow { display:flex; align-items:center; gap:12px; padding:8px 14px; border:0; border-bottom:1px solid var(--divider); background:transparent; color:var(--textPrimary); cursor:pointer; text-align:left; width:100%; }
@@ -148,6 +154,13 @@
   .modalHead button { width:26px; height:26px; border:0; border-radius:5px; background:transparent; color:var(--textMuted); cursor:pointer; }
   .modalHead button:hover { background:var(--rowHover); }
   .modalBody { padding:0 20px 4px; }
+  .treeList { list-style:none; margin:0; padding-left:20px; }
+  .treeRow { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:5px; cursor:pointer; font-size:13px; }
+  .treeRow:hover { background:var(--rowHover); }
+  .treeToggle { width:10px; flex:0 0 auto; color:var(--textMuted); font-size:10px; }
+  .treeIcon { flex:0 0 auto; }
+  .treeName { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .treeEmpty { padding:4px 6px 4px 26px; color:var(--textMuted); font-size:12px; }
   .typeTabs { display:flex; gap:4px; padding:4px; border-radius:8px; background:var(--segBg); margin-bottom:15px; }
   .typeTabs button { flex:1 1 0; height:34px; border:0; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer; background:transparent; color:var(--textSecondary); }
   .typeTabs button.active { background:var(--card); color:var(--accent); box-shadow:0 1px 2px var(--shadow); }
@@ -303,6 +316,8 @@ const state = {
   drag: null,          // 内部並び替え中のドラッグ元 {tabId,catId,index}
 };
 
+const HOME_TAB_ID = 'home';
+
 function findTab(id){ return state.data.tabs.find(t=>t.id===id); }
 function activeTab(){ return findTab(state.activeTabId); }
 function currentView(){
@@ -312,7 +327,8 @@ function currentView(){
 function defaultData(){
   return {
     tabs: [
-      { id:newId('tab'), name:'ホーム', categories: [] }
+      { id:HOME_TAB_ID, name:'ホーム', isHome:true, categories: [] },
+      { id:newId('tab'), name:'メイン', categories: [] }
     ]
   };
 }
@@ -337,6 +353,11 @@ async function init(){
   try { sysTheme = await window.go.main.App.GetSystemTheme(); } catch(e){ console.warn('テーマ自動検知失敗', e); }
 
   state.data = dataStr ? JSON.parse(dataStr) : defaultData();
+  // 旧バージョンのデータには特別なホームタブが存在しないため、先頭に新設する。
+  // 既存のタブ（たまたま「ホーム」という名前だったものも含む）はそのまま残し、変更しない。
+  if (!state.data.tabs.some(t=>t.isHome)) {
+    state.data.tabs.unshift({ id:HOME_TAB_ID, name:'ホーム', isHome:true, categories: [] });
+  }
   const s = settingsStr ? JSON.parse(settingsStr) : {};
   state.settings = Object.assign({ lastTab:null, theme:'system', viewModeByTab:{} }, s);
   // Go側でSettings{}のゼロ値がそのまま保存されると null が来ることがあるため防御する
@@ -628,8 +649,13 @@ function renderTabs(){
   state.data.tabs.forEach(tab=>{
     const isActive = tab.id === state.activeTabId && !state.query;
     const btn = document.createElement('button');
-    btn.className = 'tabBtn' + (isActive ? ' active' : '');
-    btn.textContent = tab.name;
+    btn.className = 'tabBtn' + (isActive ? ' active' : '') + (tab.isHome ? ' homeTab' : '');
+    if (tab.isHome) {
+      btn.title = 'ホーム';
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9.5a1 1 0 0 0 1 1h3.5v-6h3v6H17a1 1 0 0 0 1-1V10"/></svg>';
+    } else {
+      btn.textContent = tab.name;
+    }
     btn.dataset.tabId = tab.id;
     btn.addEventListener('click', ()=>{
       state.activeTabId = tab.id;
@@ -651,6 +677,12 @@ function renderTabs(){
       btn.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     }
   });
+  const addBtn = document.createElement('button');
+  addBtn.id = 'btnAddTab';
+  addBtn.title = 'タブを追加';
+  addBtn.textContent = '＋';
+  addBtn.addEventListener('click', addNewTab);
+  strip.appendChild(addBtn);
 }
 
 async function addNewTab(){
@@ -676,6 +708,11 @@ function renderContent(){
   const tab = activeTab();
   if (!tab) { el.innerHTML = '<p style="color:var(--textMuted);">タブがありません</p>'; return; }
   const view = currentView();
+
+  if (tab.isHome) {
+    renderHomeContent(el, view);
+    return;
+  }
 
   tab.categories.forEach(cat=>{
     // リスト表示は空きスロットを「表示しない」だけで、データ(null)自体は消さない。
@@ -793,6 +830,53 @@ function renderContent(){
   el.appendChild(addCatRow);
 }
 
+// ホームタブは通常のカテゴリを持たず、他タブの項目を「お気に入り」「よく使う」として
+// 集約表示するだけの専用ビュー。項目の実体は元のタブ/カテゴリに置いたままなので、
+// tabId/catId/idxは実体の場所を指す（編集・移動・削除は通常通りそこへ反映される）。
+function renderHomeContent(el, view){
+  const entries = [];
+  state.data.tabs.forEach(t=>{
+    if (t.isHome) return;
+    t.categories.forEach(c=>{
+      c.items.forEach((item, idx)=>{
+        if (item) entries.push({ item, tabId:t.id, catId:c.id, idx });
+      });
+    });
+  });
+
+  const favorites = entries.filter(x=>x.item.favorite);
+  const ranking = entries
+    .filter(x=>!x.item.favorite && x.item.openCount > 0)
+    .sort((a,b)=>b.item.openCount - a.item.openCount)
+    .slice(0, 10);
+
+  if (favorites.length === 0 && ranking.length === 0) {
+    el.innerHTML = '<p style="color:var(--textMuted);">お気に入りやよく使う項目がここに表示されます。項目を右クリック→「お気に入りに追加」で登録できます。</p>';
+    return;
+  }
+
+  const renderSection = (title, list)=>{
+    const block = document.createElement('div');
+    block.className = 'catBlock';
+    const header = document.createElement('div');
+    header.className = 'catHeader';
+    header.innerHTML = `<span class="name">${title}</span><span class="line"></span>`;
+    block.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = view === 'tile' ? 'tileGrid' : 'listRows';
+    list.forEach(({item, tabId, catId, idx})=>{
+      // ホーム上ではドラッグによる並び替え/移動は行わない（実体タブ/カテゴリを跨ぐ誤操作を避けるため）
+      body.appendChild(view === 'tile' ? renderTile(item, tabId, catId, idx, false) : renderListRow(item, tabId, catId, idx, false));
+    });
+    block.appendChild(body);
+    el.appendChild(block);
+  };
+
+  if (favorites.length) renderSection('★ お気に入り', favorites);
+  if (ranking.length) renderSection('よく使う', ranking);
+}
+
 function renderSearchResults(el, q){
   const results = [];
   state.data.tabs.forEach(tab=>{
@@ -844,7 +928,8 @@ function badgeHtml(type){
 }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 
-function renderTile(item, tabId, catId, idx){
+function renderTile(item, tabId, catId, idx, draggable){
+  if (draggable === undefined) draggable = true;
   const el = document.createElement('button');
   el.dataset.itemIndex = idx;
   if (!item) {
@@ -856,16 +941,17 @@ function renderTile(item, tabId, catId, idx){
     return el;
   }
   el.className = 'tile';
-  el.draggable = true;
+  el.draggable = draggable;
   el.title = item.name;
   el.style.borderLeftColor = `var(--badge${cap(item.type)}Fg)`;
   el.innerHTML = `
+    ${item.favorite ? '<span class="favStar">★</span>' : ''}
     ${iconWrapHtml(item, 60)}
     <span class="name">${escapeHtml(item.name)}</span>
   `;
   el.addEventListener('click', ()=>handleOpen(item));
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openItemContextMenu(e, tabId, catId, idx); });
-  attachDragHandlers(el, tabId, catId, idx, true);
+  if (draggable) attachDragHandlers(el, tabId, catId, idx, true);
   return el;
 }
 
@@ -990,7 +1076,8 @@ function insertItemsAt(tabId, catId, idx, rawItems){
   });
 }
 
-function renderListRow(item, tabId, catId, idx){
+function renderListRow(item, tabId, catId, idx, draggable){
+  if (draggable === undefined) draggable = true;
   const el = document.createElement(item ? 'button' : 'div');
   el.dataset.itemIndex = idx;
   if (!item) {
@@ -1000,8 +1087,9 @@ function renderListRow(item, tabId, catId, idx){
     return el;
   }
   el.className = 'listRow';
-  el.draggable = true;
+  el.draggable = draggable;
   el.innerHTML = `
+    ${item.favorite ? '<span class="favStar">★</span>' : ''}
     ${iconWrapHtml(item, 26)}
     <span class="name">${escapeHtml(item.name)}</span>
     <span class="path">${escapeHtml(item.path)}</span>
@@ -1009,7 +1097,7 @@ function renderListRow(item, tabId, catId, idx){
   `;
   el.addEventListener('click', ()=>handleOpen(item));
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openItemContextMenu(e, tabId, catId, idx); });
-  attachDragHandlers(el, tabId, catId, idx, false);
+  if (draggable) attachDragHandlers(el, tabId, catId, idx, false);
   return el;
 }
 
@@ -1188,13 +1276,96 @@ function fallbackDropTarget(){
 // アイテムを開く
 // =========================================================
 function handleOpen(item){
+  item.openCount = (item.openCount || 0) + 1;
+  persistData();
   if (item.type === 'image') {
     openImageViewer(item);
+    return;
+  }
+  if (item.type === 'folder' && item.openMode === 'tree') {
+    openFolderTreeModal(item);
     return;
   }
   window.go.main.App.OpenPath(item.path).catch(e=>{
     showToast('開けませんでした: ' + e);
   });
+}
+
+// =========================================================
+// フォルダのツリー表示ポップアップ（項目ごとに「Explorerで開く/ツリー表示」を選択可能）
+// 既存の汎用#modalOverlay/#modalを流用する。ノードは初回展開時にListDirectoryで
+// 子要素を取得しキャッシュする（子孫を先読みはしない＝遅延展開）。
+// =========================================================
+async function openFolderTreeModal(item){
+  const overlay = document.getElementById('modalOverlay');
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modalHead">
+      <span class="title">📁 ${escapeHtml(item.name)}</span>
+      <button id="modalClose">✕</button>
+    </div>
+    <div class="modalBody">
+      <ul class="treeList" id="treeRootList" style="padding-left:0;"></ul>
+    </div>
+  `;
+  modal.querySelector('#modalClose').addEventListener('click', ()=>{ overlay.style.display = 'none'; });
+  overlay.style.display = 'flex';
+  const rootList = modal.querySelector('#treeRootList');
+  rootList.appendChild(await buildTreeNode(item.path, item.name, true));
+}
+
+async function buildTreeNode(path, name, isRoot){
+  const li = document.createElement('li');
+  li.className = 'treeNode';
+  const row = document.createElement('div');
+  row.className = 'treeRow';
+  row.innerHTML = `<span class="treeToggle">▸</span><span class="treeIcon">📁</span><span class="treeName">${escapeHtml(name)}</span>`;
+  li.appendChild(row);
+
+  const childList = document.createElement('ul');
+  childList.className = 'treeList';
+  childList.style.display = 'none';
+  li.appendChild(childList);
+
+  let loaded = false;
+  const toggle = async ()=>{
+    const expanded = childList.style.display !== 'none';
+    if (expanded) {
+      childList.style.display = 'none';
+      row.querySelector('.treeToggle').textContent = '▸';
+      return;
+    }
+    if (!loaded) {
+      loaded = true;
+      let entries = [];
+      try { entries = await window.go.main.App.ListDirectory(path); }
+      catch(e) { showToast('フォルダを読み込めませんでした: ' + e); }
+      if (entries.length === 0) {
+        const emptyLi = document.createElement('li');
+        emptyLi.className = 'treeEmpty';
+        emptyLi.textContent = '（空）';
+        childList.appendChild(emptyLi);
+      }
+      for (const entry of entries) {
+        if (entry.isDir) {
+          childList.appendChild(await buildTreeNode(entry.path, entry.name, false));
+        } else {
+          const fileLi = document.createElement('li');
+          fileLi.className = 'treeNode';
+          fileLi.innerHTML = `<div class="treeRow"><span class="treeToggle"></span><span class="treeIcon">📄</span><span class="treeName">${escapeHtml(entry.name)}</span></div>`;
+          fileLi.querySelector('.treeRow').addEventListener('click', ()=>{
+            window.go.main.App.OpenPath(entry.path).catch(e=>showToast('開けませんでした: ' + e));
+          });
+          childList.appendChild(fileLi);
+        }
+      }
+    }
+    childList.style.display = 'block';
+    row.querySelector('.treeToggle').textContent = '▾';
+  };
+  row.addEventListener('click', toggle);
+  if (isRoot) await toggle(); // ルート直下は最初から展開しておく
+  return li;
 }
 
 // =========================================================
@@ -1278,6 +1449,8 @@ function openItemContextMenu(e, tabId, catId, idx){
   menu.innerHTML = `
     <div class="ctxTitle">${escapeHtml(item.name)}</div>
     <button class="ctxItem" data-act="open">▶ 開く</button>
+    <button class="ctxItem" data-act="fav">${item.favorite ? '★ お気に入りを解除' : '☆ お気に入りに追加'}</button>
+    ${item.type === 'folder' ? `<button class="ctxItem" data-act="openmode">${item.openMode === 'tree' ? '📁 Explorerで開くに変更' : '🌳 ツリー表示で開くに変更'}</button>` : ''}
     <button class="ctxItem" data-act="edit">✎ 編集</button>
     <button class="ctxItem" data-act="icon">🖼 アイコンを変更…</button>
     <button class="ctxItem" data-act="copy">⧉ パスをコピー</button>
@@ -1288,6 +1461,19 @@ function openItemContextMenu(e, tabId, catId, idx){
     <button class="ctxItem danger" data-act="delete">🗑 削除</button>
   `;
   menu.querySelector('[data-act="open"]').onclick = ()=>{ closeContextMenu(); handleOpen(item); };
+  menu.querySelector('[data-act="fav"]').onclick = ()=>{
+    closeContextMenu();
+    item.favorite = !item.favorite;
+    persistData();
+    renderContent();
+  };
+  if (item.type === 'folder') {
+    menu.querySelector('[data-act="openmode"]').onclick = ()=>{
+      closeContextMenu();
+      item.openMode = item.openMode === 'tree' ? 'explorer' : 'tree';
+      persistData();
+    };
+  }
   menu.querySelector('[data-act="edit"]').onclick = ()=>{ closeContextMenu(); openAddModal({ tabId, catId, idx, item }); };
   menu.querySelector('[data-act="icon"]').onclick = (ev)=>{ ev.stopPropagation(); openIconPicker(ev, tabId, catId, idx); };
   menu.querySelector('[data-act="copy"]').onclick = ()=>{ closeContextMenu(); navigator.clipboard.writeText(item.path).catch(()=>{}); };
@@ -1341,6 +1527,19 @@ function openCategoryContextMenu(e, tab, cat){
 
 function openTabContextMenu(e, tab){
   const menu = document.getElementById('ctxMenu');
+  if (tab.isHome) {
+    // ホームタブは固定の集約表示専用のため、名前変更・カテゴリ・削除は行えない
+    menu.innerHTML = `
+      <div class="ctxTitle">ホーム</div>
+      <button class="ctxItem" data-act="addtab">＋ 新しいタブを追加</button>
+    `;
+    menu.querySelector('[data-act="addtab"]').onclick = async ()=>{
+      closeContextMenu();
+      await addNewTab();
+    };
+    positionAndShowMenu(e);
+    return;
+  }
   menu.innerHTML = `
     <div class="ctxTitle">タブ：${escapeHtml(tab.name)}</div>
     <button class="ctxItem" data-act="rename">✎ 名前を変更</button>

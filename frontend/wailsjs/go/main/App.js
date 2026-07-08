@@ -26,6 +26,10 @@ export function GetSystemTheme() {
   return window['go']['main']['App']['GetSystemTheme']();
 }
 
+export function ListDirectory(arg1) {
+  return window['go']['main']['App']['ListDirectory'](arg1);
+}
+
 export function LoadData() {
   return window['go']['main']['App']['LoadData']();
 }
