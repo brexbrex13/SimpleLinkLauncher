@@ -56,7 +56,7 @@
 
   #app { display:flex; flex-direction:column; height:100vh; background:var(--winBg); }
 
-  /* ツールバー（コマンドバー＋タブを1行に統合。タイトルバー代わりのドラッグ領域も兼ねる） */
+  /* 1行目: アプリ全体系の操作（検索・表示切替・テーマ・追加・閉じる）。タイトルバー代わりのドラッグ領域も兼ねる */
   #toolbar { --wails-draggable:drag; flex:0 0 auto; display:flex; align-items:center; gap:6px; height:38px; padding:0 8px; background:var(--commandBar); border-bottom:1px solid var(--divider); }
   #toolbar button, #toolbar input { --wails-draggable:no-drag; }
 
@@ -77,13 +77,15 @@
   #viewToggle { display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--segBg); flex:0 0 auto; }
   .segBtn.iconBtn.active { background:var(--card); color:var(--textPrimary); box-shadow:0 1px 2px var(--shadow); }
 
-  /* タブ（ツールバーに内包） */
-  #tabStrip { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:2px; overflow-x:auto; height:100%; }
+  /* 2行目: タブ専用の行。全幅を使えるようにし、スクロールバーは隠して見た目をすっきりさせる
+     （マウスドラッグでの左右スクロールに対応。ホイールでのタブ切替は#appレベルの既存挙動のまま） */
+  #tabBar { --wails-draggable:drag; flex:0 0 auto; height:36px; padding:0 8px; background:var(--tabStripBg); border-bottom:1px solid var(--divider); overflow:hidden; }
+  #tabStrip { --wails-draggable:no-drag; width:100%; height:100%; display:flex; align-items:center; gap:2px; overflow-x:auto; cursor:grab; scrollbar-width:none; }
+  #tabStrip::-webkit-scrollbar { display:none; }
+  #tabStrip.dragging { cursor:grabbing; user-select:none; }
   .tabBtn { flex:0 0 auto; display:flex; align-items:center; gap:6px; height:28px; padding:0 12px; border:0; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; background:transparent; color:var(--textSecondary); }
   .tabBtn.active { background:var(--card); color:var(--textPrimary); box-shadow:0 1px 2px var(--shadow); }
   .tabBtn:hover { background:var(--rowHover); }
-  #btnAddTab { flex:0 0 auto; width:26px; height:26px; border:0; border-radius:6px; background:transparent; color:var(--textSecondary); cursor:pointer; }
-  #btnAddTab:hover { background:var(--rowHover); }
 
   /* コンテンツ */
   /* margin-right: フレームレスウィンドウの右端リサイズ判定(Wails既定6px)が、
@@ -178,7 +180,6 @@
     <button id="btnAdd" class="iconBtn accent" title="追加">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
-    <div id="tabStrip"></div>
     <div class="searchWrap sm">
       <svg class="searchIcon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.3"/><path d="M10.4 10.4l3.1 3.1"/></svg>
       <input id="searchInput" placeholder="検索">
@@ -196,6 +197,10 @@
     <button id="btnCloseApp" class="iconBtn" title="閉じる">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
     </button>
+  </div>
+
+  <div id="tabBar">
+    <div id="tabStrip"></div>
   </div>
 
   <div id="content"></div>
@@ -440,6 +445,33 @@ function bindStaticEvents(){
   bindImgViewerZoom();
 
   bindWheelTabSwitch();
+  bindTabStripDragScroll();
+}
+
+// タブストリップのマウスドラッグによる横スクロール（スクロールバーは非表示にしているため）。
+// ドラッグ操作と判定した場合、直後のclickでタブが誤って切り替わらないよう抑止する。
+function bindTabStripDragScroll(){
+  const el = document.getElementById('tabStrip');
+  let isDown = false, moved = false, startX = 0, startScroll = 0;
+  el.addEventListener('mousedown', (e)=>{
+    isDown = true; moved = false;
+    startX = e.clientX;
+    startScroll = el.scrollLeft;
+  });
+  window.addEventListener('mousemove', (e)=>{
+    if (!isDown) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 4) { moved = true; el.classList.add('dragging'); }
+    if (moved) el.scrollLeft = startScroll - dx;
+  });
+  window.addEventListener('mouseup', ()=>{
+    isDown = false;
+    el.classList.remove('dragging');
+  });
+  el.addEventListener('click', (e)=>{
+    if (moved) e.stopPropagation();
+    moved = false;
+  }, true);
 }
 
 function setView(v){
@@ -617,20 +649,16 @@ function renderTabs(){
       btn.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     }
   });
-  const addBtn = document.createElement('button');
-  addBtn.id = 'btnAddTab';
-  addBtn.textContent = '＋';
-  addBtn.title = 'タブを追加';
-  addBtn.addEventListener('click', async ()=>{
-    const name = await showTextPrompt('新しいタブ名', '');
-    if (!name) return;
-    const tab = { id:newId('tab'), name, categories:[] };
-    state.data.tabs.push(tab);
-    state.activeTabId = tab.id;
-    persistData();
-    render();
-  });
-  strip.appendChild(addBtn);
+}
+
+async function addNewTab(){
+  const name = await showTextPrompt('新しいタブ名', '');
+  if (!name) return;
+  const tab = { id:newId('tab'), name, categories:[] };
+  state.data.tabs.push(tab);
+  state.activeTabId = tab.id;
+  persistData();
+  render();
 }
 
 function renderContent(){
@@ -1304,6 +1332,7 @@ function openTabContextMenu(e, tab){
     <div class="ctxTitle">タブ：${escapeHtml(tab.name)}</div>
     <button class="ctxItem" data-act="rename">✎ 名前を変更</button>
     <button class="ctxItem" data-act="addcat">＋ カテゴリを追加</button>
+    <button class="ctxItem" data-act="addtab">＋ 新しいタブを追加</button>
     <div style="height:1px;background:var(--divider);margin:4px 6px;"></div>
     <button class="ctxItem danger" data-act="deltab">🗑 タブを削除</button>
   `;
@@ -1322,6 +1351,10 @@ function openTabContextMenu(e, tab){
     tab.categories.push({ id:newId('cat'), name, items:[] });
     persistData();
     if (state.activeTabId === tab.id) renderContent();
+  };
+  menu.querySelector('[data-act="addtab"]').onclick = async ()=>{
+    closeContextMenu();
+    await addNewTab();
   };
   menu.querySelector('[data-act="deltab"]').onclick = async ()=>{
     closeContextMenu();
@@ -1398,16 +1431,19 @@ function openAddModal(ctx){
   const isEdit = !!(ctx && ctx.item);
   const isFill = !!(ctx && !ctx.item); // 空きスロットへの新規追加（既存項目なし）
   const item = isEdit ? ctx.item : { name:'', type:'file', path:'' };
-  const modalTab = (isEdit || isFill) ? findTab(ctx.tabId) : activeTab();
-  const hasCategories = modalTab.categories.length > 0;
+  const initialTab = (isEdit || isFill) ? findTab(ctx.tabId) : activeTab();
 
   const overlay = document.getElementById('modalOverlay');
   const modal = document.getElementById('modal');
 
-  const catOptions = modalTab.categories.map(c=>{
-    const selected = (isEdit || isFill) ? (c.id === ctx.catId) : (c === modalTab.categories[0]);
-    return `<option value="${c.id}" ${selected?'selected':''}>${c.name ? escapeHtml(c.name) : '（未分類）'}</option>`;
-  }).join('');
+  const buildCatOptions = (tab)=>{
+    const hasCategories = tab.categories.length > 0;
+    const opts = tab.categories.map(c=>{
+      const selected = (isEdit || isFill) && tab.id === initialTab.id && c.id === ctx.catId;
+      return `<option value="${c.id}" ${selected ? 'selected':''}>${c.name ? escapeHtml(c.name) : '（未分類）'}</option>`;
+    }).join('');
+    return opts + `<option value="__new__" ${hasCategories ? '' : 'selected'}>＋ 新しいカテゴリを作成…</option>`;
+  };
 
   modal.innerHTML = `
     <div class="modalHead">
@@ -1420,12 +1456,13 @@ function openAddModal(ctx){
         <input id="fName" value="${escapeAttr(item.name)}" placeholder="例：勤怠管理システム">
       </div>
       <div class="field">
+        <label>タブ</label>
+        <select id="fTab">${state.data.tabs.map(t=>`<option value="${t.id}" ${t.id===initialTab.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>
+      </div>
+      <div class="field">
         <label>カテゴリ</label>
-        <select id="fCategory">
-          ${catOptions}
-          <option value="__new__" ${hasCategories ? '' : 'selected'}>＋ 新しいカテゴリを作成…</option>
-        </select>
-        <input id="fNewCategoryName" placeholder="新しいカテゴリ名（空欄可＝未分類）" style="display:${hasCategories ? 'none' : 'block'};margin-top:6px;">
+        <select id="fCategory">${buildCatOptions(initialTab)}</select>
+        <input id="fNewCategoryName" placeholder="新しいカテゴリ名（空欄可＝未分類）" style="display:${initialTab.categories.length ? 'none' : 'block'};margin-top:6px;">
       </div>
       <label style="display:block;font-size:11.5px;font-weight:600;color:var(--textSecondary);margin:0 0 5px;">パス / URL</label>
       <div class="pathRow">
@@ -1444,20 +1481,28 @@ function openAddModal(ctx){
     </div>
   `;
 
+  const tabSelect = modal.querySelector('#fTab');
   const catSelect = modal.querySelector('#fCategory');
   const newCatInput = modal.querySelector('#fNewCategoryName');
+  tabSelect.addEventListener('change', ()=>{
+    const t = findTab(tabSelect.value);
+    catSelect.innerHTML = buildCatOptions(t);
+    newCatInput.style.display = catSelect.value === '__new__' ? 'block' : 'none';
+  });
   catSelect.addEventListener('change', ()=>{
     newCatInput.style.display = catSelect.value === '__new__' ? 'block' : 'none';
   });
 
-  // 選択中のカテゴリを解決する。"__new__"なら新規カテゴリをこの場でtabへ追加する。
+  // 選択中のタブ/カテゴリを解決する。"__new__"なら新規カテゴリをこの場でtabへ追加する。
+  const resolveTargetTab = ()=> findTab(tabSelect.value);
   const resolveTargetCategory = ()=>{
+    const targetTab = resolveTargetTab();
     if (catSelect.value === '__new__') {
       const cat = { id:newId('cat'), name: newCatInput.value.trim(), items:[] };
-      modalTab.categories.push(cat);
+      targetTab.categories.push(cat);
       return cat;
     }
-    return modalTab.categories.find(c=>c.id===catSelect.value) || modalTab.categories[0];
+    return targetTab.categories.find(c=>c.id===catSelect.value) || targetTab.categories[0];
   };
 
   const fillFromPath = (path)=>{
@@ -1520,7 +1565,7 @@ function openAddModal(ctx){
     const targetCat = resolveTargetCategory();
 
     if (isEdit) {
-      const oldCat = modalTab.categories.find(c=>c.id===ctx.catId);
+      const oldCat = findTab(ctx.tabId).categories.find(c=>c.id===ctx.catId);
       item.name = name; item.path = path; item.type = type;
       if (oldCat && oldCat.id !== targetCat.id) {
         oldCat.items.splice(ctx.idx, 1);
@@ -1528,12 +1573,12 @@ function openAddModal(ctx){
       }
     } else if (isFill) {
       const newItem = { id:newId('item'), name, path, type, icon:{kind:'none', value:null} };
-      const fillCat = modalTab.categories.find(c=>c.id===ctx.catId);
+      const fillCat = findTab(ctx.tabId).categories.find(c=>c.id===ctx.catId);
       if (fillCat && fillCat.id === targetCat.id) {
         // カテゴリを変更していない場合は、元の空きスロットへそのまま格納する
         fillCat.items[ctx.idx] = newItem;
       } else {
-        // 別カテゴリを選んだ場合は末尾に追加し、元の空きスロットはそのまま残す
+        // 別タブ/カテゴリを選んだ場合は末尾に追加し、元の空きスロットはそのまま残す
         targetCat.items.push(newItem);
       }
       if (type === 'image') fetchImageThumbnail(newItem);
@@ -1546,6 +1591,12 @@ function openAddModal(ctx){
     }
     persistData();
     close();
+    const targetTab = resolveTargetTab();
+    if (targetTab.id !== state.activeTabId) {
+      state.activeTabId = targetTab.id;
+      state.settings.lastTab = targetTab.id;
+      persistSettings();
+    }
     render();
   });
 
