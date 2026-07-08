@@ -93,7 +93,9 @@
      スクロールバーを右端から少し離して専用のリサイズ領域を確保する（実機未検証）。 */
   #content { flex:1 1 auto; overflow-y:auto; background:var(--content); padding:18px 22px 30px; margin-right:4px; }
   .catBlock { margin-bottom:22px; }
-  .catHeader { display:flex; align-items:center; gap:10px; margin-bottom:11px; }
+  .catHeader { display:flex; align-items:center; gap:8px; margin-bottom:11px; cursor:pointer; user-select:none; }
+  .catHeader .chevron { flex:0 0 auto; color:var(--textMuted); transition:transform .15s; }
+  .catHeader.collapsed .chevron { transform:rotate(-90deg); }
   .catHeader .name { font-size:12px; font-weight:700; color:var(--textSecondary); white-space:nowrap; }
   .catHeader .line { flex:1 1 auto; height:1px; background:var(--divider); }
 
@@ -682,17 +684,28 @@ function renderContent(){
     const block = document.createElement('div');
     block.className = 'catBlock';
     const header = document.createElement('div');
-    header.className = 'catHeader';
-    header.title = '右クリックで名前変更・追加・削除';
+    header.className = 'catHeader' + (cat.collapsed ? ' collapsed' : '');
+    header.title = 'クリックで折りたたみ／展開、右クリックで名前変更・追加・削除';
     header.innerHTML = `
+      <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       <span class="name">${cat.name ? escapeHtml(cat.name) : '（未分類）'}</span>
       <span class="line"></span>
     `;
+    header.addEventListener('click', ()=>{
+      cat.collapsed = !cat.collapsed;
+      persistData();
+      renderContent();
+    });
     header.addEventListener('contextmenu', (e)=>{
       e.preventDefault();
       openCategoryContextMenu(e, tab, cat);
     });
     block.appendChild(header);
+
+    if (cat.collapsed) {
+      el.appendChild(block);
+      return;
+    }
 
     const body = document.createElement('div');
     body.dataset.catBody = '1';
