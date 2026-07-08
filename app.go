@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -315,6 +316,36 @@ func (a *App) FetchPageTitle(url string) (string, error) {
 		return "", fmt.Errorf("titleタグが空でした")
 	}
 	return title, nil
+}
+
+// FileEntry はツリー表示ポップアップ1件分（ディレクトリ直下の子要素）。
+type FileEntry struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"isDir"`
+}
+
+// ListDirectory はディレクトリ直下の子要素一覧を返す（再帰しない。フロント側が
+// ツリーの各ノードを開いたタイミングで都度呼び、遅延展開する）。フォルダを先に、
+// 続いてファイルを、それぞれ名前順で返す。
+func (a *App) ListDirectory(path string) ([]FileEntry, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	dirs := make([]FileEntry, 0, len(entries))
+	files := make([]FileEntry, 0, len(entries))
+	for _, e := range entries {
+		fe := FileEntry{Name: e.Name(), Path: filepath.Join(path, e.Name()), IsDir: e.IsDir()}
+		if e.IsDir() {
+			dirs = append(dirs, fe)
+		} else {
+			files = append(files, fe)
+		}
+	}
+	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name < dirs[j].Name })
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return append(dirs, files...), nil
 }
 
 // ---- 外部ファイルのドラッグ&ドロップ受信 ----

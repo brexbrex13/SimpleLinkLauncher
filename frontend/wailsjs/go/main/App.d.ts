@@ -13,6 +13,8 @@ export function FetchPageTitle(arg1:string):Promise<string>;
 
 export function GetSystemTheme():Promise<string>;
 
+export function ListDirectory(arg1:string):Promise<Array<{name:string; path:string; isDir:boolean}>>;
+
 export function LoadData():Promise<string>;
 
 export function LoadSettings():Promise<string>;
