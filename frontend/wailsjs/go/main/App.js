@@ -14,6 +14,10 @@ export function BrowseMultipleFiles() {
   return window['go']['main']['App']['BrowseMultipleFiles']();
 }
 
+export function DeleteManagedImage(arg1) {
+  return window['go']['main']['App']['DeleteManagedImage'](arg1);
+}
+
 export function ExtractIcon(arg1) {
   return window['go']['main']['App']['ExtractIcon'](arg1);
 }
@@ -24,6 +28,10 @@ export function FetchPageTitle(arg1) {
 
 export function GetSystemTheme() {
   return window['go']['main']['App']['GetSystemTheme']();
+}
+
+export function IsManagedImage(arg1) {
+  return window['go']['main']['App']['IsManagedImage'](arg1);
 }
 
 export function ListDirectory(arg1) {

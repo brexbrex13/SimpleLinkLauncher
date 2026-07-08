@@ -348,6 +348,43 @@ func (a *App) ListDirectory(path string) ([]FileEntry, error) {
 	return append(dirs, files...), nil
 }
 
+// managedImagePath はpathが exeDir/images 配下であればその絶対パスを、そうでなければ
+// 空文字を返す。クリップボード画像貼り付け(PasteClipboardImage)がこのフォルダにのみ
+// 保存するため、「アプリが自分で作ったファイルかどうか」の判定に使う。
+func (a *App) managedImagePath(path string) string {
+	imagesDir, err := filepath.Abs(filepath.Join(a.exeDir, "images"))
+	if err != nil {
+		return ""
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	rel, err := filepath.Rel(imagesDir, absPath)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return ""
+	}
+	return absPath
+}
+
+// IsManagedImage は、指定パスがアプリ管理下のimages/フォルダ内（クリップボード貼り付けで
+// 保存した画像）かどうかを返す。フロント側が削除確認ダイアログの文言
+// （画像ファイルも消えるかどうか）を決めるために使う。
+func (a *App) IsManagedImage(path string) bool {
+	return a.managedImagePath(path) != ""
+}
+
+// DeleteManagedImage は、指定パスがアプリ管理下のimages/フォルダ内にある場合に限りファイルを
+// 削除する。フォルダ外のパス（ユーザーが既存の画像ファイルを直接登録した場合）は削除しない
+// （ユーザーの実ファイルを誤って消さないための安全策）。
+func (a *App) DeleteManagedImage(path string) error {
+	managed := a.managedImagePath(path)
+	if managed == "" {
+		return nil
+	}
+	return os.Remove(managed)
+}
+
 // ---- 外部ファイルのドラッグ&ドロップ受信 ----
 
 // DroppedItem はOS側からドロップされたパス1件分の解決結果。

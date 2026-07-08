@@ -1279,6 +1279,12 @@ function handleOpen(item){
   item.openCount = (item.openCount || 0) + 1;
   persistData();
   if (item.type === 'image') {
+    if (item.viewMode === 'system') {
+      window.go.main.App.OpenPath(item.path).catch(e=>{
+        showToast('開けませんでした: ' + e);
+      });
+      return;
+    }
     openImageViewer(item);
     return;
   }
@@ -1289,6 +1295,20 @@ function handleOpen(item){
   window.go.main.App.OpenPath(item.path).catch(e=>{
     showToast('開けませんでした: ' + e);
   });
+}
+
+// 同じパスを参照する項目が他にもあるか（「複製」機能で同一画像を複数項目から
+// 参照できるため）。ある場合、画像削除時にファイル実体までは消さない
+// （他の項目の表示が壊れてしまうのを防ぐため）。
+function otherItemsShareThisPath(path, excludeItem){
+  for (const tab of state.data.tabs) {
+    for (const cat of tab.categories) {
+      for (const it of cat.items) {
+        if (it && it !== excludeItem && it.path === path) return true;
+      }
+    }
+  }
+  return false;
 }
 
 // =========================================================
@@ -1451,6 +1471,7 @@ function openItemContextMenu(e, tabId, catId, idx){
     <button class="ctxItem" data-act="open">▶ 開く</button>
     <button class="ctxItem" data-act="fav">${item.favorite ? '★ お気に入りを解除' : '☆ お気に入りに追加'}</button>
     ${item.type === 'folder' ? `<button class="ctxItem" data-act="openmode">${item.openMode === 'tree' ? '📁 Explorerで開くに変更' : '🌳 ツリー表示で開くに変更'}</button>` : ''}
+    ${item.type === 'image' ? `<button class="ctxItem" data-act="viewmode">${item.viewMode === 'system' ? '🖼 アプリ内ビューワで開くに変更' : '🖥 標準の画像ビューワで開くに変更'}</button>` : ''}
     <button class="ctxItem" data-act="edit">✎ 編集</button>
     <button class="ctxItem" data-act="icon">🖼 アイコンを変更…</button>
     <button class="ctxItem" data-act="copy">⧉ パスをコピー</button>
@@ -1474,6 +1495,13 @@ function openItemContextMenu(e, tabId, catId, idx){
       persistData();
     };
   }
+  if (item.type === 'image') {
+    menu.querySelector('[data-act="viewmode"]').onclick = ()=>{
+      closeContextMenu();
+      item.viewMode = item.viewMode === 'system' ? 'app' : 'system';
+      persistData();
+    };
+  }
   menu.querySelector('[data-act="edit"]').onclick = ()=>{ closeContextMenu(); openAddModal({ tabId, catId, idx, item }); };
   menu.querySelector('[data-act="icon"]').onclick = (ev)=>{ ev.stopPropagation(); openIconPicker(ev, tabId, catId, idx); };
   menu.querySelector('[data-act="copy"]').onclick = ()=>{ closeContextMenu(); navigator.clipboard.writeText(item.path).catch(()=>{}); };
@@ -1481,9 +1509,22 @@ function openItemContextMenu(e, tabId, catId, idx){
   menu.querySelector('[data-act="dup"]').onclick = ()=>{ closeContextMenu(); openMoveCopyModal(tabId, catId, idx, 'copy'); };
   menu.querySelector('[data-act="delete"]').onclick = async ()=>{
     closeContextMenu();
-    if (!await showConfirm(`「${item.name}」を削除しますか？`)) return;
+    // 画像は「クリップボード貼り付けでアプリが自分で保存したファイル」かつ「他の項目から
+    // 参照されていない」場合に限り、登録解除と同時にファイル本体も削除する（ユーザーが
+    // 直接登録した既存の画像ファイルや、複製で共有されている画像は消さない）。
+    let willDeleteFile = false;
+    if (item.type === 'image' && !otherItemsShareThisPath(item.path, item)) {
+      try { willDeleteFile = await window.go.main.App.IsManagedImage(item.path); } catch(e) { /* 判定できなければ従来通りファイルは消さない */ }
+    }
+    const msg = willDeleteFile
+      ? `「${item.name}」を削除しますか？（画像ファイルも削除されます）`
+      : `「${item.name}」を削除しますか？`;
+    if (!await showConfirm(msg)) return;
     cat.items.splice(idx, 1);
     persistData();
+    if (willDeleteFile) {
+      window.go.main.App.DeleteManagedImage(item.path).catch(e=>console.error('画像ファイル削除失敗', e));
+    }
     render();
   };
   positionAndShowMenu(e);
