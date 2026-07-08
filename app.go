@@ -103,8 +103,23 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	// ウィンドウ位置は起動引数での指定手段が無いため、保存済みがあれば常に復元する。
+	//
+	// 【重要】vendored wails/v2のWindows実装は、WindowGetPosition（絶対スクリーン座標を
+	// GetWindowRectでそのまま返す）とWindowSetPosition（渡した値を「現在ウィンドウがある
+	// モニタの作業領域の左上」に加算してから設定する＝モニタ相対オフセットとして扱う）の間で
+	// 座標系が非対称になっている（internal/frontend/desktop/windows/winc/controlbase.go の
+	// SetPos/Pos参照）。プライマリモニタ（作業領域の原点が(0,0)）だけを使っている場合は
+	// 加算量が0になるため症状が出ないが、セカンダリモニタを使っている場合は保存→復元のたびに
+	// モニタのオフセット分だけ位置がずれ、デュアルディスプレイ環境で「起動するたびに右へ
+	// ずれていく」形で顕在化する。SetPosition直後にGetPositionで実際に反映された位置を
+	// 読み戻し、ズレ（加算されたモニタオフセット）を逆算して補正した値で再設定することで、
+	// 実際の絶対座標が保存値と一致するようにする。
 	if s.WindowX != 0 || s.WindowY != 0 {
 		runtime.WindowSetPosition(ctx, s.WindowX, s.WindowY)
+		actualX, actualY := runtime.WindowGetPosition(ctx)
+		if actualX != s.WindowX || actualY != s.WindowY {
+			runtime.WindowSetPosition(ctx, 2*s.WindowX-actualX, 2*s.WindowY-actualY)
+		}
 	}
 }
 
