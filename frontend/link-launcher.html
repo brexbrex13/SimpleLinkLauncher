@@ -64,6 +64,7 @@
   .iconBtn:hover { background:var(--rowHover); }
   .iconBtn.accent { background:var(--accent); color:#fff; }
   .iconBtn.accent:hover { background:var(--accentHover); }
+  #btnCloseApp { margin-left:auto; }
   #btnCloseApp:hover { background:var(--danger); color:#fff; }
 
   .searchWrap { position:relative; }
@@ -512,13 +513,21 @@ function isOverlayOpen(){
 }
 
 // アクティブタブをdir(+1/-1)分だけ進める。端はクランプ(ループしない)。検索結果表示中は何もしない。
+// マウスホイール1ノッチで複数回のwheelイベント(deltaYが分割されて連続発火)が来る機種があり、
+// クールダウン無しだと1ノッチで2タブ分進んでしまい、間のタブへ切り替えられなくなる不具合が
+// あった(Issue #18)。同一方向への連続呼び出しを短時間ブロックすることで1ノッチ=1タブに揃える。
+let lastWheelTabSwitchAt = 0;
+const WHEEL_TAB_SWITCH_COOLDOWN_MS = 220;
 function switchTabByDelta(dir){
   if (state.query) return;
+  const now = Date.now();
+  if (now - lastWheelTabSwitchAt < WHEEL_TAB_SWITCH_COOLDOWN_MS) return;
   const tabs = state.data.tabs;
   const idx = tabs.findIndex(t=>t.id===state.activeTabId);
   if (idx === -1) return;
   const next = idx + dir;
   if (next < 0 || next >= tabs.length) return;
+  lastWheelTabSwitchAt = now;
   state.activeTabId = tabs[next].id;
   state.settings.lastTab = tabs[next].id;
   persistSettings();
