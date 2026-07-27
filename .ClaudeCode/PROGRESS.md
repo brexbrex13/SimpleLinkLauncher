@@ -314,13 +314,44 @@ Issue #18の「改善」欄（ホームタブ表示のON/OFF設定、右クリ�
       ファイルには未保存）。生成物が届いたら自己完結型（背景色込み）か透明グリフのみかを
       確認し、`iconWrapHtml()`の実装を調整する。
 
+## Python版移植（GoWails→Python、`python/`ディレクトリ）
+
+商用利用可能なpermissiveライセンス（pywebview=BSD-3-Clause、pywin32=PSF License、
+Pillow=HPND）のみでGo/Wails版を再現できるか検討し、実装まで完了させた。Go版を置き換える
+ものではなく、`python/`配下に並行して追加した移植版という位置づけ（Go版は引き続き
+リポジトリルートに存在し、リリースフローも従来通り）。
+
+- [x] 検討: pywebview(BSD-3) + pywin32(PSF) + Pillow(HPND) + PyInstaller/cx_Freeze/Nuitka
+      で全機能を商用利用可能ライセンスのみで再現できると判断。
+- [x] D&Dのフルパス取得可否を検証: pywebview 5.0以降の`webview.dom.DOMEventHandler` +
+      `pywebviewFullPath`で対応可能と確認（ユーザー実機で動作確認済み）。
+- [x] 実装: `python/main.py`(main.go相当)、`python/api.py`(app.go相当)、
+      `python/win_icon.py`/`win_theme.py`/`win_clipboard.py`
+      (icon_windows.go/theme_windows.go/clipboard_windows.go相当)、
+      `python/pathtype.py`(パス種別判定の共通ロジック)。
+      フロント(`python/frontend/link-launcher.html`)はGo版とほぼ無改変
+      （差分はpywebviewブリッジ層の追加のみ、4箇所）。
+- [x] このリポジトリの開発環境(Linux)で検証可能な範囲は完了:
+      JS構文チェック、ヘッドレスChromiumでの`window.pywebview.api`モックによる
+      ブリッジ層・`init()`動作確認、DIB→BMP変換ロジックの単体テスト(Pillow経由)。
+      Windows専用API(pywin32・winreg・os.startfile)を実際に呼ぶコードパスは
+      Linux環境のため未実行検証。
+- [ ] 実機(Windows)での動作確認: 未着手。詳細な未検証項目一覧は
+      `python/DEV_NOTES_PYTHON.md`参照。特に「フレームレスウィンドウのドラッグ領域と
+      ボタンクリックの両立」「ネイティブファイルドロップの境界条件」の2点が優先度高。
+- [ ] Windows実機でのPyInstaller等によるexe化・配布パッケージング検証: 未着手
+      （`python/BUILD_PYTHON.md`に手順は記載済みだが未実行）。
+- [ ] Go版と正式に並走させるか置き換えるかの方針決定: ユーザーの実機検証結果を踏まえて
+      リリース後に判断する。
+
 ## ステータス
 
-- 現在地: フェーズ1〜12すべて実装済み。フェーズ7（アコーディオン）はPR #14、
+- 現在地: Go/Wails版はフェーズ1〜12すべて実装済み。フェーズ7（アコーディオン）はPR #14、
   フェーズ8〜9（ホームタブ/お気に入り/ランキング、フォルダツリー）はPR #15、
   フェーズ10（アプリアイコン差し替え・画像削除・標準ビューワ選択）はPR #16でマージ済み。
   フェーズ11（ウィンドウ位置ドリフト修正）はPR #17でマージ済み。
   フェーズ12（Issue #18のバグ2件修正）は実装完了、コミット/PR/マージはこれから。
   すべて実機(Windows/Wailsランタイム)での確認は次回リリース後に
   ユーザー側で実施が必要。種別グリフ(GLYPHS)のアイコン刷新は引き続き画像待ち。
-- 最終更新: 2026-07-15
+  Python版移植は実装完了、Windows実機での動作確認待ち（上記セクション参照）。
+- 最終更新: 2026-07-27
