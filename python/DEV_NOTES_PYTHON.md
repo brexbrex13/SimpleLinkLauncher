@@ -30,6 +30,19 @@ pywebview 6.2.1 / pywin32 312 / Pillow 12.3.0)を実際に調べ、それぞれ�
 いないため、実機(Windows)で`pip install -r requirements.txt`した際に問題が出た場合は
 このセクションを更新すること。
 
+## 実機フィードバックで判明した不具合(修正済み)
+
+- **`ExtractIcon`が`AttributeError: module 'win32gui' has no attribute 'SHGetFileInfo'`で
+  失敗**(ユーザー実機で確認)。`SHGetFileInfo`は`win32gui`ではなく`win32com.shell.shell`
+  に属する関数だった。`win_icon.py`を実際に動作実績のある公開コード例
+  (`win32com.shell.shell.SHGetFileInfo` + `win32ui`のDC/ビットマップ操作 +
+  `PyCDC.DrawIcon`)に合わせて修正した。旧実装は`win32gui.GetIconInfo`でアイコンの
+  実サイズを取得したうえで`win32gui.DrawIconEx`を直接呼ぶ構成だったが、この
+  `DrawIconEx`直呼びの経路も未検証のまま(存在するかどうかの根拠が薄い状態)だったため、
+  実績のある`win32api.GetSystemMetrics(SM_CXICON)`で固定サイズを取得し
+  `win32ui`のDCオブジェクトが持つ`DrawIcon`メソッドを使う、よりシンプルな経路に
+  差し替えた(`GetIconInfo`自体も不要になり削除)。
+
 ## 移植方針
 
 - **フロントエンド(`frontend/link-launcher.html`)はほぼ無改変で流用**。Go版との差分は
