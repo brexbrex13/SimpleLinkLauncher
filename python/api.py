@@ -115,15 +115,15 @@ class App:
     # ---- ファイル/フォルダ選択ダイアログ ----
 
     def BrowseFile(self) -> str:
-        result = self._window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False)
+        result = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False)
         return result[0] if result else ""
 
     def BrowseMultipleFiles(self) -> list[str]:
-        result = self._window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=True)
+        result = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=True)
         return list(result) if result else []
 
     def BrowseFolder(self) -> str:
-        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return result[0] if result else ""
 
     # ---- パス種別判定・画像 ----

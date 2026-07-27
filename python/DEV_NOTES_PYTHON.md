@@ -8,6 +8,28 @@ Go/Wails版の `.ClaudeCode/DEV_NOTES.md` に対応するドキュメント。�
 モックしたヘッドレスChromiumで、ブリッジ層(`window.go.main.App.*`のProxy委譲、
 `pywebview-drag-region`クラス付与、`init()`の実行)のみ動作確認済み。
 
+## 依存バージョンの選定(requirements.txt)
+
+`>=`の下限のみを指定し、上限は設けていない。PyPI上の最新版(2026-07時点:
+pywebview 6.2.1 / pywin32 312 / Pillow 12.3.0)を実際に調べ、それぞれ本アプリが
+使っているAPIが最新メジャーバージョンでも安全に使えることを確認したうえで、
+下限をそのメジャーバージョンの先頭(pywebview>=6.0 / Pillow>=12.0)まで引き上げてある。
+
+- **pywebview>=6.0**: 5.x→6.0で`webview.OPEN_DIALOG`/`webview.FOLDER_DIALOG`定数が
+  `webview.FileDialog.OPEN`/`webview.FileDialog.FOLDER`enumへ非推奨化されたため、
+  `api.py`の`BrowseFile`/`BrowseMultipleFiles`/`BrowseFolder`は新しいenum形式に追従済み。
+  本アプリが使うD&D関連API(`webview.dom.DOMEventHandler`、`pywebviewFullPath`)・
+  `window.events.closing`・`create_window`の主要引数(`frameless`/`easy_drag`/`js_api`/
+  `url`/`x`/`y`/`width`/`height`)は6.0の変更点一覧に含まれておらず、影響なしと判断した。
+- **pywin32>=312**: PyPIの最新リリース番号をそのまま下限にした(pywin32はビルド番号のみの
+  バージョニングで、306以降はpipでのインストールのみサポートという情報以外に個別APIの
+  非推奨情報が見当たらなかったため、深い根拠は無い「最新に追従」の位置づけ)。
+- **Pillow>=12.0**: BMP(BI_BITFIELDS含む)デコーダに11→12間の破壊的変更は確認できなかった。
+
+いずれもこのリポジトリの開発環境(Linux)では実際にpywin32・WebView2を動かして検証できて
+いないため、実機(Windows)で`pip install -r requirements.txt`した際に問題が出た場合は
+このセクションを更新すること。
+
 ## 移植方針
 
 - **フロントエンド(`frontend/link-launcher.html`)はほぼ無改変で流用**。Go版との差分は
